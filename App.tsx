@@ -254,34 +254,25 @@ function App() {
 
   const ScoreboardCard = () => (
       <div className="bg-stone-800/50 rounded-xl p-3 md:p-4 shadow-lg border border-stone-700 backdrop-blur-sm w-full">
-        
-        {/* Title & Clocks Header */}
-        <div className="flex flex-col gap-2">
-            <div className="text-center mb-1">
-                <h1 className="text-2xl md:text-3xl font-bold font-calligraphy text-amber-500 drop-shadow-md tracking-widest">
-                    中国象棋
-                </h1>
+        {/* Removed Title from here */}
+        <div className="flex items-center justify-between gap-2">
+            <div className={`flex-1 p-2 rounded-lg border flex flex-col items-center transition-all duration-300 ${turn === Color.Red ? 'bg-red-900/20 border-red-500/50 shadow-[0_0_10px_rgba(239,68,68,0.2)]' : 'bg-stone-800 border-stone-700 opacity-60'}`}>
+                <div className="text-[10px] text-red-400 font-bold mb-1 uppercase tracking-wider flex items-center gap-1">
+                    <Clock className="w-3 h-3" /> Red
+                </div>
+                <div className={`text-xl md:text-2xl font-mono font-bold tracking-wider ${redTime < 30 && initialTime > 0 ? 'text-red-500 animate-pulse' : 'text-stone-200'}`}>
+                    {formatTime(redTime)}
+                </div>
             </div>
             
-            <div className="flex items-center justify-between gap-2">
-                <div className={`flex-1 p-2 rounded-lg border flex flex-col items-center transition-all duration-300 ${turn === Color.Red ? 'bg-red-900/20 border-red-500/50 shadow-[0_0_10px_rgba(239,68,68,0.2)]' : 'bg-stone-800 border-stone-700 opacity-60'}`}>
-                    <div className="text-[10px] text-red-400 font-bold mb-1 uppercase tracking-wider flex items-center gap-1">
-                        <Clock className="w-3 h-3" /> Red
-                    </div>
-                    <div className={`text-xl md:text-2xl font-mono font-bold tracking-wider ${redTime < 30 && initialTime > 0 ? 'text-red-500 animate-pulse' : 'text-stone-200'}`}>
-                        {formatTime(redTime)}
-                    </div>
-                </div>
-                
-                <div className="text-stone-600 font-bold text-sm italic px-1">VS</div>
+            <div className="text-stone-600 font-bold text-sm italic px-1">VS</div>
 
-                <div className={`flex-1 p-2 rounded-lg border flex flex-col items-center transition-all duration-300 ${turn === Color.Black ? 'bg-stone-700/50 border-stone-400/50 shadow-[0_0_10px_rgba(168,162,158,0.2)]' : 'bg-stone-800 border-stone-700 opacity-60'}`}>
-                        <div className="text-[10px] text-stone-400 font-bold mb-1 uppercase tracking-wider flex items-center gap-1">
-                        <Clock className="w-3 h-3" /> Black
-                    </div>
-                    <div className={`text-xl md:text-2xl font-mono font-bold tracking-wider ${blackTime < 30 && initialTime > 0 ? 'text-red-500 animate-pulse' : 'text-stone-200'}`}>
-                        {formatTime(blackTime)}
-                    </div>
+            <div className={`flex-1 p-2 rounded-lg border flex flex-col items-center transition-all duration-300 ${turn === Color.Black ? 'bg-stone-700/50 border-stone-400/50 shadow-[0_0_10px_rgba(168,162,158,0.2)]' : 'bg-stone-800 border-stone-700 opacity-60'}`}>
+                    <div className="text-[10px] text-stone-400 font-bold mb-1 uppercase tracking-wider flex items-center gap-1">
+                    <Clock className="w-3 h-3" /> Black
+                </div>
+                <div className={`text-xl md:text-2xl font-mono font-bold tracking-wider ${blackTime < 30 && initialTime > 0 ? 'text-red-500 animate-pulse' : 'text-stone-200'}`}>
+                    {formatTime(blackTime)}
                 </div>
             </div>
         </div>
@@ -376,6 +367,25 @@ function App() {
     </div>
   );
 
+  // AI Analysis Message Component
+  const AnalysisMessage = () => (
+    <div className="w-full max-w-[600px] lg:max-w-[800px] min-h-[50px] mb-2 transition-all">
+        {aiThinking ? (
+            <div className="bg-stone-800/50 rounded-xl p-2 border border-amber-500/30 flex items-center justify-center gap-3 text-amber-400 animate-pulse">
+                <div className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                <div className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                <div className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                <span className="text-xs md:text-sm">AI Thinking...</span>
+            </div>
+        ) : aiReasoning ? (
+            <div className="bg-stone-800/50 rounded-xl p-2 md:p-3 border border-purple-500/30 backdrop-blur-sm animate-fade-in">
+                <h3 className="text-[10px] md:text-xs font-bold text-purple-400 uppercase mb-1 flex items-center gap-2"><Sparkles className="w-3 h-3"/> Gemini Analysis</h3>
+                <p className="text-xs md:text-sm text-stone-300 italic leading-relaxed">"{aiReasoning}"</p>
+            </div>
+        ) : null}
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-stone-900 text-stone-100 font-serif overflow-x-hidden">
         
@@ -395,12 +405,20 @@ function App() {
             {/* Center: Game Board Area (Mobile: Mix of elements, Desktop: Right Column) */}
             <div className="flex-1 flex flex-col items-center w-full">
                 
-                {/* Mobile: Top Scoreboard */}
+                {/* Title moved here for both mobile and desktop */}
+                <h1 className="text-3xl md:text-5xl font-bold font-calligraphy text-amber-500 drop-shadow-md tracking-widest mb-2 md:mb-4 text-center">
+                    中国象棋
+                </h1>
+
+                {/* AI Message moved below Title */}
+                <AnalysisMessage />
+
+                {/* Mobile: Scoreboard (Under title/AI on mobile) */}
                 <div className="lg:hidden w-full max-w-[600px] mb-4">
                    <ScoreboardCard />
                 </div>
 
-                {/* Board Container - Max width 800px on desktop for wider view */}
+                {/* Board Container */}
                 <div className="w-full max-w-[600px] lg:max-w-[800px]">
                     <Board 
                         board={board} 
@@ -410,23 +428,6 @@ function App() {
                         lastMove={lastMove}
                         rotateBlack={aiModel === AIModel.None}
                     />
-                </div>
-
-                {/* AI Message */}
-                <div className="w-full max-w-[600px] lg:max-w-[800px] mt-4 min-h-[80px] transition-all">
-                    {aiThinking ? (
-                        <div className="bg-stone-800/50 rounded-xl p-3 border border-amber-500/30 flex items-center justify-center gap-3 text-amber-400 animate-pulse">
-                            <div className="w-2 h-2 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                            <div className="w-2 h-2 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                            <div className="w-2 h-2 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                            <span className="text-sm">AI Thinking...</span>
-                        </div>
-                    ) : aiReasoning ? (
-                        <div className="bg-stone-800/50 rounded-xl p-3 border border-purple-500/30 backdrop-blur-sm animate-fade-in">
-                            <h3 className="text-xs font-bold text-purple-400 uppercase mb-1 flex items-center gap-2"><Sparkles className="w-3 h-3"/> Gemini Analysis</h3>
-                            <p className="text-xs text-stone-300 italic leading-relaxed">"{aiReasoning}"</p>
-                        </div>
-                    ) : null}
                 </div>
 
                 {/* Mobile: Bottom Settings & History */}
