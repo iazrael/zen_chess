@@ -8,9 +8,10 @@ interface BoardProps {
   selectedPos: Position | null;
   validMoves: Position[];
   lastMove: Move | null;
+  rotateBlack?: boolean;
 }
 
-export const Board: React.FC<BoardProps> = ({ board, onSquareClick, selectedPos, validMoves, lastMove }) => {
+export const Board: React.FC<BoardProps> = ({ board, onSquareClick, selectedPos, validMoves, lastMove, rotateBlack }) => {
   
   return (
     // Outer Frame (Wood texture, padding, border, shadow)
@@ -57,8 +58,8 @@ export const Board: React.FC<BoardProps> = ({ board, onSquareClick, selectedPos,
             <line x1="55" y1="75" x2="35" y2="95" stroke="#543d18" strokeWidth="0.5" />
 
             {/* River Text */}
-            <text x="20" y="51.5" fontSize="4" fill="#543d18" fontFamily="serif" dominantBaseline="middle" opacity="0.7">楚 河</text>
-            <text x="70" y="51.5" fontSize="4" fill="#543d18" fontFamily="serif" dominantBaseline="middle" textAnchor="end" opacity="0.7">汉 界</text>
+            <text x="20" y="51.5" fontSize="4" fill="#543d18" fontFamily="serif" dominantBaseline="middle" opacity="0.7" style={{ transformBox: 'fill-box', transformOrigin: 'center', transform: rotateBlack ? 'rotate(180deg)' : 'none' }}>楚 河</text>
+            <text x="70" y="51.5" fontSize="4" fill="#543d18" fontFamily="serif" dominantBaseline="middle" textAnchor="end" opacity="0.7" style={{ transformBox: 'fill-box', transformOrigin: 'center', transform: rotateBlack ? 'rotate(180deg)' : 'none' }}>汉 界</text>
             
             {/* Position Markers (Little corners) */}
             {[
@@ -115,6 +116,7 @@ export const Board: React.FC<BoardProps> = ({ board, onSquareClick, selectedPos,
                                     onClick={() => onSquareClick({x,y})}
                                     isLastMoveSource={isLastSource}
                                     isLastMoveDest={isLastDest}
+                                    rotate={rotateBlack && piece.color === Color.Black}
                                 />
                             )}
                         </div>

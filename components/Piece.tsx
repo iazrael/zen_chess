@@ -9,9 +9,10 @@ interface PieceProps {
   onClick: () => void;
   isLastMoveSource?: boolean;
   isLastMoveDest?: boolean;
+  rotate?: boolean;
 }
 
-export const PieceComponent: React.FC<PieceProps> = ({ piece, isSelected, onClick, isLastMoveSource, isLastMoveDest }) => {
+export const PieceComponent: React.FC<PieceProps> = ({ piece, isSelected, onClick, isLastMoveSource, isLastMoveDest, rotate }) => {
   const isRed = piece.color === Color.Red;
   
   return (
@@ -44,7 +45,7 @@ export const PieceComponent: React.FC<PieceProps> = ({ piece, isSelected, onClic
       
       {/* Character */}
       <span 
-        className="text-2xl md:text-3xl lg:text-4xl font-calligraphy font-bold drop-shadow-sm pb-1"
+        className={`text-2xl md:text-3xl lg:text-4xl font-calligraphy font-bold drop-shadow-sm pb-1 transition-transform duration-500 ${rotate ? 'rotate-180' : ''}`}
         style={{ 
           textShadow: '0px 1px 1px rgba(255,255,255,0.8)' 
         }}

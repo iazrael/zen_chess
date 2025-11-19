@@ -24,8 +24,8 @@ function App() {
   const [redTime, setRedTime] = useState<number>(600);
   const [blackTime, setBlackTime] = useState<number>(600);
 
-  // AI State
-  const [aiModel, setAiModel] = useState<AIModel>(AIModel.None);
+  // AI State: Default to Traditional (Minimax)
+  const [aiModel, setAiModel] = useState<AIModel>(AIModel.Traditional);
   const [aiThinking, setAiThinking] = useState(false);
   const [aiReasoning, setAiReasoning] = useState<string | null>(null);
 
@@ -248,6 +248,130 @@ function App() {
       return "";
   };
 
+  // --- Sub Components for cleaner layout ---
+
+  const ScoreboardCard = () => (
+      <div className="bg-stone-800/50 rounded-xl p-3 md:p-4 shadow-lg border border-stone-700 backdrop-blur-sm w-full">
+        
+        {/* Title & Clocks Header */}
+        <div className="flex flex-col gap-2">
+            <div className="text-center mb-1">
+                <h1 className="text-2xl md:text-3xl font-bold font-calligraphy text-amber-500 drop-shadow-md tracking-widest">
+                    中国象棋
+                </h1>
+            </div>
+            
+            <div className="flex items-center justify-between gap-2">
+                <div className={`flex-1 p-2 rounded-lg border flex flex-col items-center transition-all duration-300 ${turn === Color.Red ? 'bg-red-900/20 border-red-500/50 shadow-[0_0_10px_rgba(239,68,68,0.2)]' : 'bg-stone-800 border-stone-700 opacity-60'}`}>
+                    <div className="text-[10px] text-red-400 font-bold mb-1 uppercase tracking-wider flex items-center gap-1">
+                        <Clock className="w-3 h-3" /> Red
+                    </div>
+                    <div className={`text-xl md:text-2xl font-mono font-bold tracking-wider ${redTime < 30 && initialTime > 0 ? 'text-red-500 animate-pulse' : 'text-stone-200'}`}>
+                        {formatTime(redTime)}
+                    </div>
+                </div>
+                
+                <div className="text-stone-600 font-bold text-sm italic px-1">VS</div>
+
+                <div className={`flex-1 p-2 rounded-lg border flex flex-col items-center transition-all duration-300 ${turn === Color.Black ? 'bg-stone-700/50 border-stone-400/50 shadow-[0_0_10px_rgba(168,162,158,0.2)]' : 'bg-stone-800 border-stone-700 opacity-60'}`}>
+                        <div className="text-[10px] text-stone-400 font-bold mb-1 uppercase tracking-wider flex items-center gap-1">
+                        <Clock className="w-3 h-3" /> Black
+                    </div>
+                    <div className={`text-xl md:text-2xl font-mono font-bold tracking-wider ${blackTime < 30 && initialTime > 0 ? 'text-red-500 animate-pulse' : 'text-stone-200'}`}>
+                        {formatTime(blackTime)}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {gameStatus !== GameStatus.Playing && (
+            <div className="mt-3 p-2 bg-amber-900/30 border border-amber-700 rounded text-center animate-bounce">
+                    <span className="text-base font-bold text-amber-400">
+                        {getWinMessage()}
+                    </span>
+                </div>
+        )}
+    </div>
+  );
+
+  const SettingsCard = () => (
+    <div className="bg-stone-800/50 rounded-xl p-4 shadow-lg border border-stone-700 backdrop-blur-sm w-full">
+        <h2 className="text-sm font-bold mb-3 text-stone-300 flex items-center gap-2">
+            <BrainCircuit className="w-4 h-4" /> Settings
+        </h2>
+
+        <label className="text-[10px] text-stone-500 uppercase font-bold mb-1 block">Opponent</label>
+        <div className="grid grid-cols-2 gap-2 mb-3">
+            {[
+                { m: AIModel.None, l: 'PvP' },
+                { m: AIModel.Traditional, l: 'Minimax' },
+                { m: AIModel.GeminiFlash, l: 'Flash', icon: true },
+                { m: AIModel.GeminiPro, l: 'Pro', icon: true }
+            ].map(opt => (
+                <button 
+                    key={opt.m}
+                    onClick={() => setAiModel(opt.m)}
+                    className={`p-1.5 text-[10px] rounded transition-all flex items-center justify-center gap-1 ${aiModel === opt.m ? (opt.m.includes('gemini') ? (opt.m.includes('pro') ? 'bg-purple-600 text-white' : 'bg-blue-600 text-white') : 'bg-amber-600 text-white') : 'bg-stone-700 hover:bg-stone-600'}`}
+                >
+                    {opt.icon && <Sparkles className="w-3 h-3" />} {opt.l}
+                </button>
+            ))}
+        </div>
+
+        <label className="text-[10px] text-stone-500 uppercase font-bold mb-1 block">Time</label>
+        <div className="flex gap-1 mb-4 bg-stone-900/40 p-1 rounded-lg">
+            {[0, 300, 600].map(t => (
+                <button
+                    key={t}
+                    onClick={() => changeTimeControl(t)}
+                    className={`flex-1 py-1 text-[10px] rounded transition-all ${initialTime === t ? 'bg-stone-600 text-stone-100 shadow ring-1 ring-stone-500' : 'text-stone-500 hover:text-stone-300'}`}
+                >
+                    {t === 0 ? '∞' : `${t/60}m`}
+                </button>
+            ))}
+        </div>
+        
+        <div className="flex gap-2">
+            <button onClick={undo} disabled={history.length === 0 || aiThinking || gameStatus !== GameStatus.Playing} className="flex-1 py-1.5 bg-stone-700 hover:bg-stone-600 rounded flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-xs">
+                <Undo2 className="w-3 h-3" /> Undo
+            </button>
+            <button onClick={reset} className="flex-1 py-1.5 bg-stone-700 hover:bg-stone-600 rounded flex items-center justify-center gap-2 text-xs">
+                <RotateCcw className="w-3 h-3" /> Reset
+            </button>
+        </div>
+    </div>
+  );
+
+  const HistoryCard = () => (
+    <div className="h-[300px] lg:h-[600px] w-full bg-stone-800/50 rounded-xl shadow-lg border border-stone-700 backdrop-blur-sm flex flex-col overflow-hidden">
+            <div className="p-3 border-b border-stone-700 bg-stone-800 flex items-center gap-2 text-stone-300 font-bold text-xs uppercase tracking-wider">
+            <ScrollText className="w-4 h-4 text-amber-500" />
+            History
+            </div>
+            <div className="flex-1 overflow-y-auto p-3 space-y-1 scrollbar-thin scrollbar-thumb-stone-600 scrollbar-track-stone-800">
+            {moveList.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center opacity-30 text-stone-500">
+                    <div className="text-2xl font-calligraphy mb-1">观棋不语</div>
+                </div>
+            ) : (
+                moveList.map((move, index) => {
+                    const isRedMove = index % 2 === 0;
+                    return (
+                        <div key={index} className={`flex items-center gap-2 p-1.5 rounded text-xs ${index === moveList.length - 1 ? 'bg-amber-900/30 ring-1 ring-amber-700/50' : 'hover:bg-stone-700/30'}`}>
+                            <span className="text-stone-500 w-4 text-right font-mono text-[10px]">{index + 1}.</span>
+                            <div className={`flex items-center gap-2 ${isRedMove ? 'text-red-300' : 'text-stone-300'}`}>
+                                <span className="text-sm">{isRedMove ? '🔴' : '⚫'}</span>
+                                <span className="font-serif tracking-wide">{move}</span>
+                            </div>
+                        </div>
+                    );
+                })
+            )}
+            <div ref={movesEndRef} />
+            </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-stone-900 text-stone-100 font-serif overflow-x-hidden">
         
@@ -255,96 +379,18 @@ function App() {
 
         <div className="container mx-auto p-2 md:p-4 lg:p-8 min-h-screen flex flex-col lg:flex-row items-start justify-center gap-4 lg:gap-8">
 
-            {/* Left Panel: Controls & Info */}
-            <div className="w-full lg:w-[320px] flex flex-col gap-4 order-3 lg:order-1">
+            {/* Left Panel (Desktop) / Top Panel (Mobile) */}
+            <div className="w-full lg:w-[320px] flex flex-col gap-4 order-1 lg:order-1">
+                <ScoreboardCard />
                 
-                {/* Scoreboard */}
-                <div className="bg-stone-800/50 rounded-xl p-4 md:p-6 shadow-lg border border-stone-700 backdrop-blur-sm">
-                    <div className="flex items-center justify-between gap-2 md:gap-4 mb-4">
-                        <div className={`flex-1 p-2 md:p-3 rounded-lg border flex flex-col items-center transition-all duration-300 ${turn === Color.Red ? 'bg-red-900/20 border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.2)]' : 'bg-stone-800 border-stone-700 opacity-60'}`}>
-                            <div className="text-[10px] md:text-xs text-red-400 font-bold mb-1 uppercase tracking-wider flex items-center gap-1">
-                                <Clock className="w-3 h-3" /> Red
-                            </div>
-                            <div className={`text-2xl md:text-3xl font-mono font-bold tracking-wider ${redTime < 30 && initialTime > 0 ? 'text-red-500 animate-pulse' : 'text-stone-200'}`}>
-                                {formatTime(redTime)}
-                            </div>
-                        </div>
-                        
-                        <div className="text-stone-600 font-bold text-xl italic">VS</div>
-
-                        <div className={`flex-1 p-2 md:p-3 rounded-lg border flex flex-col items-center transition-all duration-300 ${turn === Color.Black ? 'bg-stone-700/50 border-stone-400/50 shadow-[0_0_15px_rgba(168,162,158,0.2)]' : 'bg-stone-800 border-stone-700 opacity-60'}`}>
-                             <div className="text-[10px] md:text-xs text-stone-400 font-bold mb-1 uppercase tracking-wider flex items-center gap-1">
-                                <Clock className="w-3 h-3" /> Black
-                            </div>
-                            <div className={`text-2xl md:text-3xl font-mono font-bold tracking-wider ${blackTime < 30 && initialTime > 0 ? 'text-red-500 animate-pulse' : 'text-stone-200'}`}>
-                                {formatTime(blackTime)}
-                            </div>
-                        </div>
-                    </div>
-
-                    {gameStatus !== GameStatus.Playing && (
-                        <div className="p-3 bg-amber-900/30 border border-amber-700 rounded text-center animate-bounce">
-                             <span className="text-lg md:text-xl font-bold text-amber-400">
-                                 {getWinMessage()}
-                             </span>
-                         </div>
-                    )}
-                </div>
-
-                {/* Settings */}
-                <div className="bg-stone-800/50 rounded-xl p-4 md:p-6 shadow-lg border border-stone-700 backdrop-blur-sm">
-                    <h2 className="text-base md:text-lg font-bold mb-4 text-stone-300 flex items-center gap-2">
-                        <BrainCircuit className="w-5 h-5" /> Settings
-                    </h2>
-
-                    <label className="text-xs text-stone-500 uppercase font-bold mb-2 block">Opponent</label>
-                    <div className="grid grid-cols-2 gap-2 mb-4">
-                        {[
-                            { m: AIModel.None, l: 'Local PvP' },
-                            { m: AIModel.Traditional, l: 'Minimax' },
-                            { m: AIModel.GeminiFlash, l: 'Gemini Flash', icon: true },
-                            { m: AIModel.GeminiPro, l: 'Gemini Pro', icon: true }
-                        ].map(opt => (
-                            <button 
-                                key={opt.m}
-                                onClick={() => setAiModel(opt.m)}
-                                className={`p-2 text-[10px] md:text-xs rounded transition-all flex items-center justify-center gap-1 ${aiModel === opt.m ? (opt.m.includes('gemini') ? (opt.m.includes('pro') ? 'bg-purple-600 text-white' : 'bg-blue-600 text-white') : 'bg-amber-600 text-white') : 'bg-stone-700 hover:bg-stone-600'}`}
-                            >
-                                {opt.icon && <Sparkles className="w-3 h-3" />} {opt.l}
-                            </button>
-                        ))}
-                    </div>
-
-                    <label className="text-xs text-stone-500 uppercase font-bold mb-2 block">Time Control</label>
-                    <div className="flex gap-1 mb-6 bg-stone-900/40 p-1 rounded-lg">
-                        {[0, 300, 600, 1800].map(t => (
-                            <button
-                                key={t}
-                                onClick={() => changeTimeControl(t)}
-                                className={`flex-1 py-1 text-xs rounded transition-all ${initialTime === t ? 'bg-stone-600 text-stone-100 shadow ring-1 ring-stone-500' : 'text-stone-500 hover:text-stone-300'}`}
-                            >
-                                {t === 0 ? '∞' : `${t/60}m`}
-                            </button>
-                        ))}
-                    </div>
-                    
-                    <div className="flex gap-2">
-                        <button onClick={undo} disabled={history.length === 0 || aiThinking || gameStatus !== GameStatus.Playing} className="flex-1 py-2 bg-stone-700 hover:bg-stone-600 rounded flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm">
-                            <Undo2 className="w-4 h-4" /> Undo
-                        </button>
-                        <button onClick={reset} className="flex-1 py-2 bg-stone-700 hover:bg-stone-600 rounded flex items-center justify-center gap-2 text-sm">
-                            <RotateCcw className="w-4 h-4" /> Reset
-                        </button>
-                    </div>
+                {/* Settings hidden on mobile here, shown below board */}
+                <div className="hidden lg:block">
+                    <SettingsCard />
                 </div>
             </div>
 
-            {/* Center: Game Board & Header */}
-            <div className="flex-1 w-full max-w-[800px] flex flex-col items-center order-1 lg:order-2">
-                <div className="text-center mb-2 md:mb-4">
-                     <h1 className="text-3xl md:text-5xl font-bold font-calligraphy text-amber-500 drop-shadow-md">中国象棋</h1>
-                </div>
-
+            {/* Center: Game Board */}
+            <div className="flex-1 w-full max-w-[800px] flex flex-col items-center order-2 lg:order-2">
                 <div className="w-full flex justify-center">
                     <Board 
                         board={board} 
@@ -352,56 +398,36 @@ function App() {
                         selectedPos={selectedPos}
                         validMoves={validMoves}
                         lastMove={lastMove}
+                        rotateBlack={aiModel === AIModel.None}
                     />
                 </div>
 
-                {/* Fixed height container for AI messages to prevent layout shift */}
-                <div className="w-full mt-4 min-h-[100px] transition-all">
+                {/* AI Thinking / Message Area */}
+                <div className="w-full mt-4 min-h-[80px] transition-all">
                     {aiThinking ? (
-                        <div className="bg-stone-800/50 rounded-xl p-4 border border-amber-500/30 flex items-center justify-center gap-3 text-amber-400 animate-pulse">
+                        <div className="bg-stone-800/50 rounded-xl p-3 border border-amber-500/30 flex items-center justify-center gap-3 text-amber-400 animate-pulse">
                             <div className="w-2 h-2 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
                             <div className="w-2 h-2 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
                             <div className="w-2 h-2 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                             <span className="text-sm">AI Thinking...</span>
                         </div>
                     ) : aiReasoning ? (
-                        <div className="bg-stone-800/50 rounded-xl p-4 border border-purple-500/30 backdrop-blur-sm animate-fade-in">
+                        <div className="bg-stone-800/50 rounded-xl p-3 border border-purple-500/30 backdrop-blur-sm animate-fade-in">
                             <h3 className="text-xs font-bold text-purple-400 uppercase mb-1 flex items-center gap-2"><Sparkles className="w-3 h-3"/> Gemini Analysis</h3>
-                            <p className="text-sm text-stone-300 italic leading-relaxed">"{aiReasoning}"</p>
+                            <p className="text-xs text-stone-300 italic leading-relaxed">"{aiReasoning}"</p>
                         </div>
                     ) : null}
                 </div>
+
+                {/* Mobile: Settings shown below board */}
+                <div className="block lg:hidden w-full mb-4">
+                    <SettingsCard />
+                </div>
             </div>
             
-            {/* Right Panel: Move List */}
-            <div className="w-full lg:w-[280px] h-[300px] lg:h-[600px] flex flex-col order-2 lg:order-3">
-                <div className="h-full bg-stone-800/50 rounded-xl shadow-lg border border-stone-700 backdrop-blur-sm flex flex-col overflow-hidden">
-                     <div className="p-3 md:p-4 border-b border-stone-700 bg-stone-800 flex items-center gap-2 text-stone-300 font-bold text-sm md:text-base">
-                        <ScrollText className="w-4 h-4 md:w-5 md:h-5 text-amber-500" />
-                        Game History
-                     </div>
-                     <div className="flex-1 overflow-y-auto p-2 md:p-4 space-y-1 md:space-y-2 scrollbar-thin scrollbar-thumb-stone-600 scrollbar-track-stone-800">
-                        {moveList.length === 0 ? (
-                            <div className="h-full flex flex-col items-center justify-center opacity-30 text-stone-500">
-                                <div className="text-3xl md:text-4xl font-calligraphy mb-2">观棋不语</div>
-                            </div>
-                        ) : (
-                            moveList.map((move, index) => {
-                                const isRedMove = index % 2 === 0;
-                                return (
-                                    <div key={index} className={`flex items-center gap-3 p-1.5 md:p-2 rounded text-xs md:text-sm ${index === moveList.length - 1 ? 'bg-amber-900/30 ring-1 ring-amber-700/50' : 'hover:bg-stone-700/30'}`}>
-                                        <span className="text-stone-500 w-6 text-right font-mono">{index + 1}.</span>
-                                        <div className={`flex items-center gap-2 ${isRedMove ? 'text-red-300' : 'text-stone-300'}`}>
-                                            <span className="text-base md:text-lg w-5">{isRedMove ? '🔴' : '⚫'}</span>
-                                            <span className="font-serif tracking-wide">{move}</span>
-                                        </div>
-                                    </div>
-                                );
-                            })
-                        )}
-                        <div ref={movesEndRef} />
-                     </div>
-                </div>
+            {/* Right Panel: History (Desktop) / Bottom Panel (Mobile) */}
+            <div className="w-full lg:w-[280px] flex flex-col order-3 lg:order-3">
+                 <HistoryCard />
             </div>
 
         </div>
