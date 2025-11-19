@@ -13,8 +13,8 @@ export default defineConfig(({ mode }) => {
     // 设置 base 为 './' 使得部署在 GitHub Pages 子路径时能正确引用资源
     base: './',
     define: {
-      'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+      // 允许在构建时注入环境变量
+      'process.env.API_KEY': JSON.stringify(process.env.API_KEY)
     },
     resolve: {
       alias: {
