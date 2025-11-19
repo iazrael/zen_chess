@@ -1,0 +1,59 @@
+import React from 'react';
+import { motion } from 'framer-motion';
+import { Piece as PieceType, Color } from '../types';
+import { PIECE_CHARS } from '../constants';
+
+interface PieceProps {
+  piece: PieceType;
+  isSelected: boolean;
+  onClick: () => void;
+  isLastMoveSource?: boolean;
+  isLastMoveDest?: boolean;
+}
+
+export const PieceComponent: React.FC<PieceProps> = ({ piece, isSelected, onClick, isLastMoveSource, isLastMoveDest }) => {
+  const isRed = piece.color === Color.Red;
+  
+  return (
+    <motion.div
+      layoutId={piece.id}
+      initial={{ opacity: 0, scale: 0.8 }}
+      animate={{ 
+        opacity: 1, 
+        scale: 1,
+        boxShadow: isSelected 
+          ? '0 0 20px rgba(255, 215, 0, 0.9), inset 0 0 10px rgba(0,0,0,0.1)' 
+          : '2px 4px 8px rgba(0,0,0,0.4), inset 0 0 10px rgba(255,255,255,0.6)'
+      }}
+      transition={{ type: "spring", stiffness: 300, damping: 25 }}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      className={`
+        relative w-[90%] h-[90%] rounded-full flex items-center justify-center cursor-pointer select-none
+        ${isRed ? 'border-red-700 text-red-700' : 'border-stone-800 text-stone-900'}
+        border-[3px]
+        bg-gradient-to-br from-amber-100 to-amber-200
+        z-20
+        ${(isLastMoveSource || isLastMoveDest) ? 'ring-2 ring-blue-400 ring-offset-2 ring-offset-transparent' : ''}
+      `}
+    >
+      {/* Inner Ring for aesthetics */}
+      <div className={`absolute w-[85%] h-[85%] rounded-full border border-dashed ${isRed ? 'border-red-300' : 'border-stone-400'} opacity-50`}></div>
+      
+      {/* Character */}
+      <span 
+        className="text-2xl md:text-3xl lg:text-4xl font-calligraphy font-bold drop-shadow-sm pb-1"
+        style={{ 
+          textShadow: '0px 1px 1px rgba(255,255,255,0.8)' 
+        }}
+      >
+        {PIECE_CHARS[piece.color][piece.type]}
+      </span>
+      
+      {/* Wood grain overlay effect */}
+      <div className="absolute inset-0 rounded-full bg-[url('https://www.transparenttextures.com/patterns/wood-pattern.png')] opacity-20 pointer-events-none"></div>
+    </motion.div>
+  );
+};

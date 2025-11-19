@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Zen Xiangqi</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              serif: ['"Noto Serif SC"', 'serif'],
+              calligraphy: ['"ZCOOL XiaoWei"', 'serif'],
+            },
+            colors: {
+              wood: {
+                100: '#f7e7ce',
+                200: '#e6cfaa',
+                300: '#d4b685',
+                400: '#c29e61',
+                500: '#b08d4f', // Main board
+                600: '#917038',
+                700: '#735626',
+                800: '#543d18',
+                900: '#3b290e',
+              },
+              piece: {
+                light: '#fdf6e3',
+                shadow: '#d6c5a1',
+              }
+            },
+            boxShadow: {
+              'piece': '2px 2px 5px rgba(0,0,0,0.3), inset 0 0 10px rgba(255,255,255,0.5)',
+              'piece-selected': '0 0 15px rgba(255, 215, 0, 0.8), 2px 2px 5px rgba(0,0,0,0.3)',
+            }
+          },
+        },
+      }
+    </script>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "framer-motion": "https://aistudiocdn.com/framer-motion@^12.23.24",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0"
+  }
+}
+</script>
+</head>
+  <body class="bg-stone-900 text-stone-100 overflow-hidden">
+    <div id="root"></div>
+  </body>
+</html>
