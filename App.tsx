@@ -5,18 +5,23 @@ import { BoardState, Color, Position, Move, GameStatus, AIModel, Piece } from '.
 import { getValidMovesForPiece, getLegalMoves, applyMove, isCheck } from './utils/chessRules';
 import { getBestMoveMinimax } from './utils/minimax';
 import { getGeminiMove } from './services/geminiService';
-import { Undo2, RotateCcw, BrainCircuit, Sparkles, ScrollText } from 'lucide-react';
+import { Undo2, RotateCcw, BrainCircuit, Sparkles, ScrollText, Clock, Timer } from 'lucide-react';
 
 function App() {
   const [board, setBoard] = useState<BoardState>(INITIAL_BOARD);
   const [turn, setTurn] = useState<Color>(Color.Red); // Red goes first
   const [selectedPos, setSelectedPos] = useState<Position | null>(null);
   const [validMoves, setValidMoves] = useState<Position[]>([]);
-  const [history, setHistory] = useState<{board: BoardState, turn: Color, lastMove: Move | null}[]>([]);
+  const [history, setHistory] = useState<{board: BoardState, turn: Color, lastMove: Move | null, redTime: number, blackTime: number}[]>([]);
   const [moveList, setMoveList] = useState<string[]>([]);
   const [lastMove, setLastMove] = useState<Move | null>(null);
   const [gameStatus, setGameStatus] = useState<GameStatus>(GameStatus.Playing);
   
+  // Timer State (in seconds)
+  const [initialTime, setInitialTime] = useState<number>(600); // Default 10 mins
+  const [redTime, setRedTime] = useState<number>(600);
+  const [blackTime, setBlackTime] = useState<number>(600);
+
   // AI State
   const [aiModel, setAiModel] = useState<AIModel>(AIModel.None);
   const [aiThinking, setAiThinking] = useState(false);
@@ -24,7 +29,34 @@ function App() {
 
   const movesEndRef = useRef<HTMLDivElement>(null);
 
-  // Check for game over conditions
+  // Timer Logic
+  useEffect(() => {
+    if (gameStatus !== GameStatus.Playing || initialTime === 0) return;
+
+    const timer = setInterval(() => {
+        if (turn === Color.Red) {
+            setRedTime(prev => {
+                if (prev <= 1) {
+                    setGameStatus(GameStatus.BlackWin);
+                    return 0;
+                }
+                return prev - 1;
+            });
+        } else {
+            setBlackTime(prev => {
+                if (prev <= 1) {
+                    setGameStatus(GameStatus.RedWin);
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [turn, gameStatus, initialTime]);
+
+  // Check for game over conditions (Checkmate/Stalemate)
   const checkGameOver = useCallback((currentBoard: BoardState, currentTurn: Color) => {
     let hasMoves = false;
     for(let y=0; y<10; y++) {
@@ -86,8 +118,8 @@ function App() {
   };
 
   const executeMove = (from: Position, to: Position) => {
-    // Save history
-    setHistory(prev => [...prev, { board, turn, lastMove }]);
+    // Save history with current times
+    setHistory(prev => [...prev, { board, turn, lastMove, redTime, blackTime }]);
 
     const movedPiece = board[from.y][from.x];
     if (movedPiece) {
@@ -153,6 +185,11 @@ function App() {
     setTurn(prevState.turn);
     setLastMove(prevState.lastMove);
     
+    // Restore time? Optional. Let's assume time keeps flowing in real life, but for fairness we restore it.
+    // Restoring time prevents "thinking on undo time".
+    setRedTime(prevState.redTime);
+    setBlackTime(prevState.blackTime);
+    
     setHistory(prev => prev.slice(0, -steps));
     setMoveList(prev => prev.slice(0, -steps));
     
@@ -169,6 +206,42 @@ function App() {
     setSelectedPos(null);
     setValidMoves([]);
     setAiReasoning(null);
+    // Reset Timers
+    setRedTime(initialTime);
+    setBlackTime(initialTime);
+  };
+
+  const changeTimeControl = (seconds: number) => {
+    setInitialTime(seconds);
+    setRedTime(seconds);
+    setBlackTime(seconds);
+    // Auto reset game to apply new time cleanly
+    setBoard(INITIAL_BOARD);
+    setTurn(Color.Red);
+    setHistory([]);
+    setMoveList([]);
+    setLastMove(null);
+    setGameStatus(GameStatus.Playing);
+    setSelectedPos(null);
+    setValidMoves([]);
+    setAiReasoning(null);
+  };
+
+  const formatTime = (seconds: number) => {
+      if (initialTime === 0) return "∞";
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const getWinMessage = () => {
+      if (gameStatus === GameStatus.RedWin) {
+          return blackTime === 0 ? "Time Out! Red Wins!" : "Checkmate! Red Wins!";
+      }
+      if (gameStatus === GameStatus.BlackWin) {
+          return redTime === 0 ? "Time Out! Black Wins!" : "Checkmate! Black Wins!";
+      }
+      return "";
   };
 
   return (
@@ -181,57 +254,91 @@ function App() {
                 <h1 className="text-4xl font-bold mb-2 font-calligraphy text-amber-500">中国象棋</h1>
                 <p className="text-stone-400 text-sm uppercase tracking-widest mb-6">Zen Xiangqi</p>
                 
-                <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                        <span className="text-stone-300">Current Turn</span>
-                        <span className={`px-3 py-1 rounded-full text-sm font-bold ${turn === Color.Red ? 'bg-red-900/50 text-red-400 border border-red-800' : 'bg-stone-950 text-stone-400 border border-stone-700'}`}>
-                            {turn === Color.Red ? 'RED (You)' : 'BLACK (Opponent)'}
-                        </span>
+                {/* Timers / Scoreboard */}
+                <div className="flex items-center justify-between gap-4 mb-4">
+                    {/* Red Clock */}
+                    <div className={`flex-1 p-3 rounded-lg border flex flex-col items-center transition-all duration-300 ${turn === Color.Red ? 'bg-red-900/20 border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.2)]' : 'bg-stone-800 border-stone-700 opacity-60'}`}>
+                        <div className="text-xs text-red-400 font-bold mb-1 uppercase tracking-wider flex items-center gap-1">
+                            <Clock className="w-3 h-3" /> Red
+                        </div>
+                        <div className={`text-3xl font-mono font-bold tracking-wider ${redTime < 30 && initialTime > 0 ? 'text-red-500 animate-pulse' : 'text-stone-200'}`}>
+                            {formatTime(redTime)}
+                        </div>
                     </div>
+                    
+                    {/* VS */}
+                    <div className="text-stone-600 font-bold text-xl font-serif italic">VS</div>
 
-                    {gameStatus !== GameStatus.Playing && (
+                    {/* Black Clock */}
+                    <div className={`flex-1 p-3 rounded-lg border flex flex-col items-center transition-all duration-300 ${turn === Color.Black ? 'bg-stone-700/50 border-stone-400/50 shadow-[0_0_15px_rgba(168,162,158,0.2)]' : 'bg-stone-800 border-stone-700 opacity-60'}`}>
+                         <div className="text-xs text-stone-400 font-bold mb-1 uppercase tracking-wider flex items-center gap-1">
+                            <Clock className="w-3 h-3" /> Black
+                        </div>
+                        <div className={`text-3xl font-mono font-bold tracking-wider ${blackTime < 30 && initialTime > 0 ? 'text-red-500 animate-pulse' : 'text-stone-200'}`}>
+                            {formatTime(blackTime)}
+                        </div>
+                    </div>
+                </div>
+
+                {gameStatus !== GameStatus.Playing && (
                          <div className="p-4 bg-amber-900/30 border border-amber-700 rounded text-center animate-bounce">
                              <span className="text-xl font-bold text-amber-400">
-                                 {gameStatus === GameStatus.RedWin ? "Red Wins! 🎉" : "Black Wins!"}
+                                 {getWinMessage()}
                              </span>
                          </div>
-                    )}
-                </div>
+                )}
             </div>
 
             <div className="bg-stone-800/50 rounded-xl p-6 shadow-lg border border-stone-700 backdrop-blur-sm">
                 <h2 className="text-lg font-bold mb-4 text-stone-300 flex items-center gap-2">
-                    <BrainCircuit className="w-5 h-5" /> Opponent Settings
+                    <BrainCircuit className="w-5 h-5" /> Game Settings
                 </h2>
+
+                {/* Opponent Selector */}
+                <label className="text-xs text-stone-500 uppercase font-bold mb-2 block">Opponent</label>
                 <div className="grid grid-cols-2 gap-2 mb-4">
                     <button 
                         onClick={() => setAiModel(AIModel.None)}
-                        className={`p-2 text-sm rounded transition-all ${aiModel === AIModel.None ? 'bg-amber-600 text-white' : 'bg-stone-700 hover:bg-stone-600'}`}
+                        className={`p-2 text-xs lg:text-sm rounded transition-all ${aiModel === AIModel.None ? 'bg-amber-600 text-white' : 'bg-stone-700 hover:bg-stone-600'}`}
                     >
                         Local PvP
                     </button>
                     <button 
                         onClick={() => setAiModel(AIModel.Traditional)}
-                        className={`p-2 text-sm rounded transition-all ${aiModel === AIModel.Traditional ? 'bg-amber-600 text-white' : 'bg-stone-700 hover:bg-stone-600'}`}
+                        className={`p-2 text-xs lg:text-sm rounded transition-all ${aiModel === AIModel.Traditional ? 'bg-amber-600 text-white' : 'bg-stone-700 hover:bg-stone-600'}`}
                     >
                         Minimax AI
                     </button>
                     <button 
                         onClick={() => setAiModel(AIModel.GeminiFlash)}
-                        className={`p-2 text-sm rounded transition-all flex items-center justify-center gap-1 ${aiModel === AIModel.GeminiFlash ? 'bg-blue-600 text-white' : 'bg-stone-700 hover:bg-stone-600'}`}
+                        className={`p-2 text-xs lg:text-sm rounded transition-all flex items-center justify-center gap-1 ${aiModel === AIModel.GeminiFlash ? 'bg-blue-600 text-white' : 'bg-stone-700 hover:bg-stone-600'}`}
                     >
                         <Sparkles className="w-3 h-3" /> Gemini Flash
                     </button>
                     <button 
                         onClick={() => setAiModel(AIModel.GeminiPro)}
-                        className={`p-2 text-sm rounded transition-all flex items-center justify-center gap-1 ${aiModel === AIModel.GeminiPro ? 'bg-purple-600 text-white' : 'bg-stone-700 hover:bg-stone-600'}`}
+                        className={`p-2 text-xs lg:text-sm rounded transition-all flex items-center justify-center gap-1 ${aiModel === AIModel.GeminiPro ? 'bg-purple-600 text-white' : 'bg-stone-700 hover:bg-stone-600'}`}
                     >
                         <Sparkles className="w-3 h-3" /> Gemini Pro
                     </button>
                 </div>
+
+                {/* Time Control Selector */}
+                <label className="text-xs text-stone-500 uppercase font-bold mb-2 block">Time Control</label>
+                <div className="flex gap-1 mb-6 bg-stone-900/40 p-1 rounded-lg">
+                    {[0, 300, 600, 1800].map(t => (
+                        <button
+                            key={t}
+                            onClick={() => changeTimeControl(t)}
+                            className={`flex-1 py-1 text-xs rounded transition-all ${initialTime === t ? 'bg-stone-600 text-stone-100 shadow ring-1 ring-stone-500' : 'text-stone-500 hover:text-stone-300'}`}
+                        >
+                            {t === 0 ? '∞' : `${t/60}m`}
+                        </button>
+                    ))}
+                </div>
                 
                 <div className="flex gap-2">
-                    <button onClick={undo} disabled={history.length === 0 || aiThinking} className="flex-1 py-2 bg-stone-700 hover:bg-stone-600 rounded flex items-center justify-center gap-2 disabled:opacity-50">
+                    <button onClick={undo} disabled={history.length === 0 || aiThinking || gameStatus !== GameStatus.Playing} className="flex-1 py-2 bg-stone-700 hover:bg-stone-600 rounded flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                         <Undo2 className="w-4 h-4" /> Undo
                     </button>
                     <button onClick={reset} className="flex-1 py-2 bg-stone-700 hover:bg-stone-600 rounded flex items-center justify-center gap-2">
