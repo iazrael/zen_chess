@@ -2,17 +2,16 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Zen Xiangqi</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
     <script>
       tailwind.config = {
         theme: {
           extend: {
             fontFamily: {
-              serif: ['"Noto Serif SC"', 'serif'],
-              calligraphy: ['"ZCOOL XiaoWei"', 'serif'],
+              serif: ['"Songti SC"', '"SimSun"', '"STSong"', '"Times New Roman"', 'serif'],
+              calligraphy: ['"KaiTi"', '"STKaiti"', '"楷体"', '"ZCOOL XiaoWei"', 'serif'],
             },
             colors: {
               wood: {
@@ -52,7 +51,7 @@
 }
 </script>
 </head>
-  <body class="bg-stone-900 text-stone-100 overflow-hidden">
+  <body class="bg-stone-900 text-stone-100">
     <div id="root"></div>
     <script type="module" src="./index.tsx"></script>
   </body>
