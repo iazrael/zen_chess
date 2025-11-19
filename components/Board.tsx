@@ -9,14 +9,29 @@ interface BoardProps {
   validMoves: Position[];
   lastMove: Move | null;
   rotateBlack?: boolean;
+  // Theme Props
+  boardBgClass?: string;
+  boardBorderClass?: string;
+  gridColor?: string;
+  woodTexture?: boolean;
 }
 
-export const Board: React.FC<BoardProps> = ({ board, onSquareClick, selectedPos, validMoves, lastMove, rotateBlack }) => {
+export const Board: React.FC<BoardProps> = ({ 
+  board, 
+  onSquareClick, 
+  selectedPos, 
+  validMoves, 
+  lastMove, 
+  rotateBlack,
+  boardBgClass = "bg-wood-500",
+  boardBorderClass = "border-wood-700",
+  gridColor = "#543d18",
+  woodTexture = true
+}) => {
   
   return (
-    // Outer Frame (Wood texture, padding, border, shadow)
-    // Removed max-w-[600px], let parent control width
-    <div className="relative w-full bg-wood-500 rounded-lg shadow-2xl p-1 md:p-3 border-[4px] border-wood-700 select-none">
+    // Outer Frame
+    <div className={`relative w-full rounded-lg shadow-2xl p-1 md:p-3 border-[4px] select-none transition-colors duration-500 ${boardBgClass} ${boardBorderClass}`}>
       
       {/* Inner Coordinate System Container (Strict Aspect Ratio, No Padding) */}
       <div className="relative w-full aspect-[9/10]">
@@ -24,43 +39,45 @@ export const Board: React.FC<BoardProps> = ({ board, onSquareClick, selectedPos,
         {/* 1. The Grid Lines (SVG) - Absolute Background */}
         <svg className="absolute inset-0 w-full h-full z-0" viewBox="0 0 90 100" preserveAspectRatio="none">
             <defs>
-                <filter id="wood-grain">
-                    <feTurbulence type="fractalNoise" baseFrequency="0.5" numOctaves="3" stitchTiles="stitch" />
-                    <feColorMatrix type="saturate" values="0.1" />
-                    <feBlend mode="multiply" in2="SourceGraphic" />
-                </filter>
+                {woodTexture && (
+                    <filter id="wood-grain">
+                        <feTurbulence type="fractalNoise" baseFrequency="0.5" numOctaves="3" stitchTiles="stitch" />
+                        <feColorMatrix type="saturate" values="0.1" />
+                        <feBlend mode="multiply" in2="SourceGraphic" />
+                    </filter>
+                )}
             </defs>
             
             {/* Horizontal Lines */}
             {Array.from({ length: 10 }).map((_, i) => (
-            <line key={`h-${i}`} x1="5" y1={5 + i * 10} x2="85" y2={5 + i * 10} stroke="#543d18" strokeWidth="0.5" />
+            <line key={`h-${i}`} x1="5" y1={5 + i * 10} x2="85" y2={5 + i * 10} stroke={gridColor} strokeWidth="0.5" />
             ))}
 
             {/* Vertical Lines (Top Half) */}
             {Array.from({ length: 9 }).map((_, i) => (
-            <line key={`v-top-${i}`} x1={5 + i * 10} y1="5" x2={5 + i * 10} y2="45" stroke="#543d18" strokeWidth="0.5" />
+            <line key={`v-top-${i}`} x1={5 + i * 10} y1="5" x2={5 + i * 10} y2="45" stroke={gridColor} strokeWidth="0.5" />
             ))}
 
             {/* Vertical Lines (Bottom Half) */}
             {Array.from({ length: 9 }).map((_, i) => (
-            <line key={`v-bot-${i}`} x1={5 + i * 10} y1="55" x2={5 + i * 10} y2="95" stroke="#543d18" strokeWidth="0.5" />
+            <line key={`v-bot-${i}`} x1={5 + i * 10} y1="55" x2={5 + i * 10} y2="95" stroke={gridColor} strokeWidth="0.5" />
             ))}
             
             {/* River Borders */}
-            <line x1="5" y1="45" x2="5" y2="55" stroke="#543d18" strokeWidth="0.5" />
-            <line x1="85" y1="45" x2="85" y2="55" stroke="#543d18" strokeWidth="0.5" />
+            <line x1="5" y1="45" x2="5" y2="55" stroke={gridColor} strokeWidth="0.5" />
+            <line x1="85" y1="45" x2="85" y2="55" stroke={gridColor} strokeWidth="0.5" />
 
             {/* Palace Crosses (Top) */}
-            <line x1="35" y1="5" x2="55" y2="25" stroke="#543d18" strokeWidth="0.5" />
-            <line x1="55" y1="5" x2="35" y2="25" stroke="#543d18" strokeWidth="0.5" />
+            <line x1="35" y1="5" x2="55" y2="25" stroke={gridColor} strokeWidth="0.5" />
+            <line x1="55" y1="5" x2="35" y2="25" stroke={gridColor} strokeWidth="0.5" />
 
             {/* Palace Crosses (Bottom) */}
-            <line x1="35" y1="75" x2="55" y2="95" stroke="#543d18" strokeWidth="0.5" />
-            <line x1="55" y1="75" x2="35" y2="95" stroke="#543d18" strokeWidth="0.5" />
+            <line x1="35" y1="75" x2="55" y2="95" stroke={gridColor} strokeWidth="0.5" />
+            <line x1="55" y1="75" x2="35" y2="95" stroke={gridColor} strokeWidth="0.5" />
 
             {/* River Text */}
-            <text x="20" y="51.5" fontSize="4" fill="#543d18" fontFamily="serif" dominantBaseline="middle" opacity="0.7" style={{ transformBox: 'fill-box', transformOrigin: 'center', transform: rotateBlack ? 'rotate(180deg)' : 'none' }}>楚 河</text>
-            <text x="70" y="51.5" fontSize="4" fill="#543d18" fontFamily="serif" dominantBaseline="middle" textAnchor="end" opacity="0.7" style={{ transformBox: 'fill-box', transformOrigin: 'center', transform: rotateBlack ? 'rotate(180deg)' : 'none' }}>汉 界</text>
+            <text x="20" y="51.5" fontSize="4" fill={gridColor} fontFamily="serif" dominantBaseline="middle" opacity="0.7" style={{ transformBox: 'fill-box', transformOrigin: 'center', transform: rotateBlack ? 'rotate(180deg)' : 'none' }}>楚 河</text>
+            <text x="70" y="51.5" fontSize="4" fill={gridColor} fontFamily="serif" dominantBaseline="middle" textAnchor="end" opacity="0.7" style={{ transformBox: 'fill-box', transformOrigin: 'center', transform: rotateBlack ? 'rotate(180deg)' : 'none' }}>汉 界</text>
             
             {/* Position Markers (Little corners) */}
             {[
@@ -74,7 +91,7 @@ export const Board: React.FC<BoardProps> = ({ board, onSquareClick, selectedPos,
                 const s = 1; // size
                 const g = 0.5; // gap
                 return (
-                    <g key={idx} stroke="#543d18" strokeWidth="0.5" fill="none">
+                    <g key={idx} stroke={gridColor} strokeWidth="0.5" fill="none">
                         <path d={`M ${cx-g-s} ${cy-g} L ${cx-g} ${cy-g} L ${cx-g} ${cy-g-s}`} />
                         <path d={`M ${cx+g+s} ${cy-g} L ${cx+g} ${cy-g} L ${cx+g} ${cy-g-s}`} />
                         <path d={`M ${cx-g-s} ${cy+g} L ${cx-g} ${cy+g} L ${cx-g} ${cy+g+s}`} />

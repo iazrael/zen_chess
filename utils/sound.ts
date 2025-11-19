@@ -1,6 +1,7 @@
 // Simple sound synthesis using Web Audio API to avoid external dependencies
 const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
 let audioCtx: AudioContext | null = null;
+let globalVolume = 0.5; // Default 50%
 
 const getCtx = () => {
     if (!audioCtx && AudioContext) {
@@ -12,7 +13,12 @@ const getCtx = () => {
     return audioCtx;
 };
 
+export const setGlobalVolume = (volume: number) => {
+    globalVolume = Math.max(0, Math.min(1, volume));
+};
+
 export const playMoveSound = () => {
+    if (globalVolume === 0) return;
     const ctx = getCtx();
     if (!ctx) return;
 
@@ -26,8 +32,8 @@ export const playMoveSound = () => {
     osc.frequency.exponentialRampToValueAtTime(40, t + 0.1);
 
     // Short envelope
-    gain.gain.setValueAtTime(0.2, t);
-    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
+    gain.gain.setValueAtTime(0.2 * globalVolume, t);
+    gain.gain.exponentialRampToValueAtTime(0.01 * globalVolume, t + 0.1);
 
     osc.connect(gain);
     gain.connect(ctx.destination);
@@ -37,6 +43,7 @@ export const playMoveSound = () => {
 };
 
 export const playCaptureSound = () => {
+    if (globalVolume === 0) return;
     const ctx = getCtx();
     if (!ctx) return;
 
@@ -54,8 +61,8 @@ export const playCaptureSound = () => {
     filter.type = 'lowpass';
     filter.frequency.value = 1000;
 
-    gain.gain.setValueAtTime(0.15, t);
-    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
+    gain.gain.setValueAtTime(0.15 * globalVolume, t);
+    gain.gain.exponentialRampToValueAtTime(0.01 * globalVolume, t + 0.15);
 
     osc.connect(filter);
     filter.connect(gain);
@@ -66,6 +73,7 @@ export const playCaptureSound = () => {
 };
 
 export const playWinSound = () => {
+    if (globalVolume === 0) return;
     const ctx = getCtx();
     if (!ctx) return;
 
@@ -90,8 +98,8 @@ export const playWinSound = () => {
         const duration = 1.0;
         
         gain.gain.setValueAtTime(0, start);
-        gain.gain.linearRampToValueAtTime(0.15, start + 0.05);
-        gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+        gain.gain.linearRampToValueAtTime(0.15 * globalVolume, start + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001 * globalVolume, start + duration);
         
         osc.connect(gain);
         gain.connect(ctx.destination);

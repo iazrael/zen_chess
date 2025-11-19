@@ -6,8 +6,44 @@ import { BoardState, Color, Position, Move, GameStatus, AIModel, Piece } from '.
 import { getLegalMoves, applyMove } from './utils/chessRules';
 import { getBestMoveMinimax } from './utils/minimax';
 import { getGeminiMove } from './services/geminiService';
-import { playMoveSound, playCaptureSound, playWinSound } from './utils/sound';
-import { Undo2, RotateCcw, BrainCircuit, Sparkles, ScrollText, Clock } from 'lucide-react';
+import { playMoveSound, playCaptureSound, playWinSound, setGlobalVolume } from './utils/sound';
+import { Undo2, RotateCcw, BrainCircuit, Sparkles, ScrollText, Clock, Settings, Volume2, Volume1, VolumeX, X } from 'lucide-react';
+
+// --- Theme Definitions ---
+const THEMES = {
+    zen: {
+        id: 'zen',
+        name: 'Zen (Dark)',
+        bgApp: 'bg-stone-900',
+        textMain: 'text-stone-100',
+        textMuted: 'text-stone-400',
+        panelBg: 'bg-stone-800/50',
+        panelBorder: 'border-stone-700',
+        highlightBg: 'bg-stone-700/50',
+        accentText: 'text-amber-500',
+        boardBg: 'bg-wood-500',
+        boardBorder: 'border-wood-700',
+        gridColor: '#543d18',
+        woodTexture: true
+    },
+    ink: {
+        id: 'ink',
+        name: 'Ink (Light)',
+        bgApp: 'bg-[#f2f0e9]',
+        textMain: 'text-stone-800',
+        textMuted: 'text-stone-500',
+        panelBg: 'bg-white/60',
+        panelBorder: 'border-stone-300',
+        highlightBg: 'bg-stone-200/50',
+        accentText: 'text-red-800',
+        boardBg: 'bg-[#e6dcc3]',
+        boardBorder: 'border-[#b8a888]',
+        gridColor: '#4a4a4a',
+        woodTexture: false
+    }
+};
+
+type ThemeKey = keyof typeof THEMES;
 
 function App() {
   const [board, setBoard] = useState<BoardState>(INITIAL_BOARD);
@@ -24,12 +60,23 @@ function App() {
   const [redTime, setRedTime] = useState<number>(600);
   const [blackTime, setBlackTime] = useState<number>(600);
 
-  // AI State: Default to Traditional (Minimax)
+  // AI State
   const [aiModel, setAiModel] = useState<AIModel>(AIModel.Traditional);
   const [aiThinking, setAiThinking] = useState(false);
   const [aiReasoning, setAiReasoning] = useState<string | null>(null);
 
+  // Settings State
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [volume, setVolume] = useState(0.5);
+  const [currentTheme, setCurrentTheme] = useState<ThemeKey>('zen');
+  const [minimaxDepth, setMinimaxDepth] = useState(3); // Default depth
+
   const historyContainerRef = useRef<HTMLDivElement>(null);
+
+  // Apply Volume
+  useEffect(() => {
+      setGlobalVolume(volume);
+  }, [volume]);
 
   // Timer Logic
   useEffect(() => {
@@ -85,7 +132,7 @@ function App() {
     }
   }, []);
 
-  // Auto-scroll history container to bottom only (prevents page jump)
+  // Auto-scroll history container
   useEffect(() => {
     if (historyContainerRef.current) {
         const { scrollHeight, clientHeight } = historyContainerRef.current;
@@ -164,7 +211,8 @@ function App() {
 
             try {
                 if (aiModel === AIModel.Traditional) {
-                    move = await getBestMoveMinimax(board, turn);
+                    // Pass the dynamic depth from settings
+                    move = await getBestMoveMinimax(board, turn, minimaxDepth);
                 } else if (aiModel === AIModel.GeminiFlash || aiModel === AIModel.GeminiPro) {
                     move = await getGeminiMove(board, turn, aiModel);
                     if (move?.reason) setAiReasoning(move.reason);
@@ -184,7 +232,7 @@ function App() {
         runAI();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [turn, aiModel, gameStatus]);
+  }, [turn, aiModel, gameStatus, minimaxDepth]); // Added minimaxDepth dependency
 
   const undo = () => {
     if (history.length === 0 || aiThinking) return;
@@ -250,36 +298,37 @@ function App() {
       return "";
   };
 
-  // --- Sub Components for cleaner layout ---
+  const activeTheme = THEMES[currentTheme];
+
+  // --- Sub Components ---
 
   const ScoreboardCard = () => (
-      <div className="bg-stone-800/50 rounded-xl p-3 md:p-4 shadow-lg border border-stone-700 backdrop-blur-sm w-full">
-        {/* Removed Title from here */}
+      <div className={`${activeTheme.panelBg} rounded-xl p-3 md:p-4 shadow-lg border ${activeTheme.panelBorder} backdrop-blur-sm w-full transition-colors`}>
         <div className="flex items-center justify-between gap-2">
-            <div className={`flex-1 p-2 rounded-lg border flex flex-col items-center transition-all duration-300 ${turn === Color.Red ? 'bg-red-900/20 border-red-500/50 shadow-[0_0_10px_rgba(239,68,68,0.2)]' : 'bg-stone-800 border-stone-700 opacity-60'}`}>
-                <div className="text-[10px] text-red-400 font-bold mb-1 uppercase tracking-wider flex items-center gap-1">
+            <div className={`flex-1 p-2 rounded-lg border flex flex-col items-center transition-all duration-300 ${turn === Color.Red ? 'bg-red-500/10 border-red-500/50 shadow-[0_0_10px_rgba(239,68,68,0.2)]' : `${activeTheme.highlightBg} border-transparent opacity-60`}`}>
+                <div className="text-[10px] text-red-500 font-bold mb-1 uppercase tracking-wider flex items-center gap-1">
                     <Clock className="w-3 h-3" /> Red
                 </div>
-                <div className={`text-xl md:text-2xl font-mono font-bold tracking-wider ${redTime < 30 && initialTime > 0 ? 'text-red-500 animate-pulse' : 'text-stone-200'}`}>
+                <div className={`text-xl md:text-2xl font-mono font-bold tracking-wider ${redTime < 30 && initialTime > 0 ? 'text-red-500 animate-pulse' : activeTheme.textMain}`}>
                     {formatTime(redTime)}
                 </div>
             </div>
             
-            <div className="text-stone-600 font-bold text-sm italic px-1">VS</div>
+            <div className={`${activeTheme.textMuted} font-bold text-sm italic px-1`}>VS</div>
 
-            <div className={`flex-1 p-2 rounded-lg border flex flex-col items-center transition-all duration-300 ${turn === Color.Black ? 'bg-stone-700/50 border-stone-400/50 shadow-[0_0_10px_rgba(168,162,158,0.2)]' : 'bg-stone-800 border-stone-700 opacity-60'}`}>
-                    <div className="text-[10px] text-stone-400 font-bold mb-1 uppercase tracking-wider flex items-center gap-1">
+            <div className={`flex-1 p-2 rounded-lg border flex flex-col items-center transition-all duration-300 ${turn === Color.Black ? `${activeTheme.highlightBg} border-stone-400/50 shadow-[0_0_10px_rgba(168,162,158,0.2)]` : `${activeTheme.highlightBg} border-transparent opacity-60`}`}>
+                    <div className={`text-[10px] ${activeTheme.textMuted} font-bold mb-1 uppercase tracking-wider flex items-center gap-1`}>
                     <Clock className="w-3 h-3" /> Black
                 </div>
-                <div className={`text-xl md:text-2xl font-mono font-bold tracking-wider ${blackTime < 30 && initialTime > 0 ? 'text-red-500 animate-pulse' : 'text-stone-200'}`}>
+                <div className={`text-xl md:text-2xl font-mono font-bold tracking-wider ${blackTime < 30 && initialTime > 0 ? 'text-red-500 animate-pulse' : activeTheme.textMain}`}>
                     {formatTime(blackTime)}
                 </div>
             </div>
         </div>
 
         {gameStatus !== GameStatus.Playing && (
-            <div className="mt-3 p-2 bg-amber-900/30 border border-amber-700 rounded text-center animate-bounce">
-                    <span className="text-base font-bold text-amber-400">
+            <div className="mt-3 p-2 bg-amber-500/10 border border-amber-500/30 rounded text-center animate-bounce">
+                    <span className={`text-base font-bold ${activeTheme.accentText}`}>
                         {getWinMessage()}
                     </span>
                 </div>
@@ -288,12 +337,21 @@ function App() {
   );
 
   const SettingsCard = () => (
-    <div className="bg-stone-800/50 rounded-xl p-4 shadow-lg border border-stone-700 backdrop-blur-sm w-full">
-        <h2 className="text-sm font-bold mb-3 text-stone-300 flex items-center gap-2">
-            <BrainCircuit className="w-4 h-4" /> Settings
-        </h2>
+    <div className={`${activeTheme.panelBg} rounded-xl p-4 shadow-lg border ${activeTheme.panelBorder} backdrop-blur-sm w-full transition-colors`}>
+        <div className="flex items-center justify-between mb-3">
+            <h2 className={`text-sm font-bold ${activeTheme.textMain} flex items-center gap-2`}>
+                <BrainCircuit className="w-4 h-4" /> Quick Setup
+            </h2>
+            <button 
+                onClick={() => setIsSettingsOpen(true)}
+                className={`p-1.5 rounded-full hover:${activeTheme.highlightBg} ${activeTheme.textMuted} transition-colors`}
+                title="All Settings"
+            >
+                <Settings className="w-4 h-4" />
+            </button>
+        </div>
 
-        <label className="text-[10px] text-stone-500 uppercase font-bold mb-1 block">Opponent</label>
+        <label className={`text-[10px] ${activeTheme.textMuted} uppercase font-bold mb-1 block`}>Opponent</label>
         <div className="grid grid-cols-2 gap-2 mb-3">
             {[
                 { m: AIModel.None, l: 'PvP' },
@@ -304,20 +362,20 @@ function App() {
                 <button 
                     key={opt.m}
                     onClick={() => setAiModel(opt.m)}
-                    className={`p-1.5 text-[10px] rounded transition-all flex items-center justify-center gap-1 ${aiModel === opt.m ? (opt.m.includes('gemini') ? (opt.m.includes('pro') ? 'bg-purple-600 text-white' : 'bg-blue-600 text-white') : 'bg-amber-600 text-white') : 'bg-stone-700 hover:bg-stone-600'}`}
+                    className={`p-1.5 text-[10px] rounded transition-all flex items-center justify-center gap-1 ${aiModel === opt.m ? (opt.m.includes('gemini') ? (opt.m.includes('pro') ? 'bg-purple-600 text-white' : 'bg-blue-600 text-white') : 'bg-amber-600 text-white') : `bg-stone-500/20 hover:bg-stone-500/30 ${activeTheme.textMain}`}`}
                 >
                     {opt.icon && <Sparkles className="w-3 h-3" />} {opt.l}
                 </button>
             ))}
         </div>
 
-        <label className="text-[10px] text-stone-500 uppercase font-bold mb-1 block">Time</label>
-        <div className="flex gap-1 mb-4 bg-stone-900/40 p-1 rounded-lg">
+        <label className={`text-[10px] ${activeTheme.textMuted} uppercase font-bold mb-1 block`}>Time</label>
+        <div className={`flex gap-1 mb-4 ${activeTheme.highlightBg} p-1 rounded-lg`}>
             {[0, 300, 600].map(t => (
                 <button
                     key={t}
                     onClick={() => changeTimeControl(t)}
-                    className={`flex-1 py-1 text-[10px] rounded transition-all ${initialTime === t ? 'bg-stone-600 text-stone-100 shadow ring-1 ring-stone-500' : 'text-stone-500 hover:text-stone-300'}`}
+                    className={`flex-1 py-1 text-[10px] rounded transition-all ${initialTime === t ? 'bg-white/20 shadow ring-1 ring-white/30 text-inherit' : `${activeTheme.textMuted} hover:text-inherit`}`}
                 >
                     {t === 0 ? '∞' : `${t/60}m`}
                 </button>
@@ -325,10 +383,10 @@ function App() {
         </div>
         
         <div className="flex gap-2">
-            <button onClick={undo} disabled={history.length === 0 || aiThinking || gameStatus !== GameStatus.Playing} className="flex-1 py-1.5 bg-stone-700 hover:bg-stone-600 rounded flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-xs">
+            <button onClick={undo} disabled={history.length === 0 || aiThinking || gameStatus !== GameStatus.Playing} className={`flex-1 py-1.5 bg-stone-500/20 hover:bg-stone-500/30 ${activeTheme.textMain} rounded flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-xs`}>
                 <Undo2 className="w-3 h-3" /> Undo
             </button>
-            <button onClick={reset} className="flex-1 py-1.5 bg-stone-700 hover:bg-stone-600 rounded flex items-center justify-center gap-2 text-xs">
+            <button onClick={reset} className={`flex-1 py-1.5 bg-stone-500/20 hover:bg-stone-500/30 ${activeTheme.textMain} rounded flex items-center justify-center gap-2 text-xs`}>
                 <RotateCcw className="w-3 h-3" /> Reset
             </button>
         </div>
@@ -336,26 +394,26 @@ function App() {
   );
 
   const HistoryCard = ({ className = "" }: { className?: string }) => (
-    <div className={`bg-stone-800/50 rounded-xl shadow-lg border border-stone-700 backdrop-blur-sm flex flex-col overflow-hidden ${className}`}>
-            <div className="p-3 border-b border-stone-700 bg-stone-800 flex items-center gap-2 text-stone-300 font-bold text-xs uppercase tracking-wider">
-            <ScrollText className="w-4 h-4 text-amber-500" />
+    <div className={`${activeTheme.panelBg} rounded-xl shadow-lg border ${activeTheme.panelBorder} backdrop-blur-sm flex flex-col overflow-hidden ${className} transition-colors`}>
+            <div className={`p-3 border-b ${activeTheme.panelBorder} ${activeTheme.highlightBg} flex items-center gap-2 ${activeTheme.textMain} font-bold text-xs uppercase tracking-wider`}>
+            <ScrollText className={`w-4 h-4 ${activeTheme.accentText}`} />
             History
             </div>
             <div 
                 ref={historyContainerRef} 
-                className="flex-1 overflow-y-auto p-3 space-y-1 scrollbar-thin scrollbar-thumb-stone-600 scrollbar-track-stone-800"
+                className="flex-1 overflow-y-auto p-3 space-y-1 scrollbar-thin scrollbar-thumb-stone-500/30 scrollbar-track-transparent"
             >
             {moveList.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center opacity-30 text-stone-500">
+                <div className={`h-full flex flex-col items-center justify-center opacity-30 ${activeTheme.textMuted}`}>
                     <div className="text-2xl font-calligraphy mb-1">观棋不语</div>
                 </div>
             ) : (
                 moveList.map((move, index) => {
                     const isRedMove = index % 2 === 0;
                     return (
-                        <div key={index} className={`flex items-center gap-2 p-1.5 rounded text-xs ${index === moveList.length - 1 ? 'bg-amber-900/30 ring-1 ring-amber-700/50' : 'hover:bg-stone-700/30'}`}>
-                            <span className="text-stone-500 w-4 text-right font-mono text-[10px]">{index + 1}.</span>
-                            <div className={`flex items-center gap-2 ${isRedMove ? 'text-red-300' : 'text-stone-300'}`}>
+                        <div key={index} className={`flex items-center gap-2 p-1.5 rounded text-xs ${index === moveList.length - 1 ? 'bg-amber-500/10 ring-1 ring-amber-500/30' : `hover:${activeTheme.highlightBg}`}`}>
+                            <span className={`${activeTheme.textMuted} w-4 text-right font-mono text-[10px] transition-colors`}>{index + 1}.</span>
+                            <div className={`flex items-center gap-2 ${isRedMove ? 'text-red-400' : activeTheme.textMain}`}>
                                 <span className="text-sm">{isRedMove ? '🔴' : '⚫'}</span>
                                 <span className="font-serif tracking-wide">{move}</span>
                             </div>
@@ -367,33 +425,117 @@ function App() {
     </div>
   );
 
-  // AI Analysis Message Component
+  // Settings Modal
+  const SettingsModal = () => {
+      if (!isSettingsOpen) return null;
+      return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+              <div className={`${activeTheme.panelBg} ${activeTheme.panelBorder} border w-full max-w-md rounded-xl shadow-2xl p-6 relative`}>
+                  <button 
+                    onClick={() => setIsSettingsOpen(false)}
+                    className={`absolute top-4 right-4 p-1 rounded-full hover:bg-stone-500/20 ${activeTheme.textMain}`}
+                  >
+                      <X className="w-5 h-5" />
+                  </button>
+                  
+                  <h2 className={`text-xl font-bold mb-6 ${activeTheme.textMain} flex items-center gap-2`}>
+                      <Settings className="w-5 h-5" /> Game Settings
+                  </h2>
+
+                  {/* Volume */}
+                  <div className="mb-6">
+                      <label className={`block text-xs uppercase font-bold ${activeTheme.textMuted} mb-3`}>Audio Volume</label>
+                      <div className="flex items-center gap-3">
+                          <button onClick={() => setVolume(0)} className={activeTheme.textMain}><VolumeX className="w-4 h-4"/></button>
+                          <input 
+                            type="range" 
+                            min="0" 
+                            max="1" 
+                            step="0.05" 
+                            value={volume} 
+                            onChange={(e) => setVolume(parseFloat(e.target.value))}
+                            className="flex-1 h-2 bg-stone-500/30 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                          />
+                          <span className={`text-xs font-mono w-8 text-right ${activeTheme.textMain}`}>{Math.round(volume * 100)}%</span>
+                      </div>
+                  </div>
+
+                  {/* Themes */}
+                  <div className="mb-6">
+                      <label className={`block text-xs uppercase font-bold ${activeTheme.textMuted} mb-3`}>Visual Theme</label>
+                      <div className="grid grid-cols-2 gap-3">
+                          {(Object.keys(THEMES) as ThemeKey[]).map((themeKey) => (
+                              <button
+                                key={themeKey}
+                                onClick={() => setCurrentTheme(themeKey)}
+                                className={`p-3 rounded-lg border text-left flex flex-col gap-1 transition-all ${currentTheme === themeKey ? 'border-amber-500 ring-1 ring-amber-500 bg-amber-500/10' : `border-transparent ${THEMES[themeKey].highlightBg}`}`}
+                              >
+                                  <span className={`font-bold text-sm ${THEMES[themeKey].textMain}`}>{THEMES[themeKey].name}</span>
+                                  <span className="text-[10px] opacity-60">Preview Colors</span>
+                                  <div className="flex gap-1 mt-1">
+                                      <div className={`w-3 h-3 rounded-full ${THEMES[themeKey].bgApp} border border-gray-500`}></div>
+                                      <div className={`w-3 h-3 rounded-full ${THEMES[themeKey].boardBg} border border-gray-500`}></div>
+                                  </div>
+                              </button>
+                          ))}
+                      </div>
+                  </div>
+
+                  {/* AI Difficulty (Minimax) */}
+                  {aiModel === AIModel.Traditional && (
+                    <div className="mb-2">
+                        <label className={`block text-xs uppercase font-bold ${activeTheme.textMuted} mb-3`}>
+                            Minimax Depth (Difficulty)
+                        </label>
+                        <div className="flex items-center gap-2 bg-stone-500/10 p-1 rounded-lg">
+                            {[2, 3, 4].map(d => (
+                                <button 
+                                    key={d}
+                                    onClick={() => setMinimaxDepth(d)}
+                                    className={`flex-1 py-2 text-xs rounded transition-all ${minimaxDepth === d ? 'bg-amber-600 text-white shadow' : `${activeTheme.textMuted} hover:bg-stone-500/10`}`}
+                                >
+                                    {d === 2 ? 'Easy (2)' : d === 3 ? 'Medium (3)' : 'Hard (4)'}
+                                </button>
+                            ))}
+                        </div>
+                        <p className={`text-[10px] mt-2 ${activeTheme.textMuted} italic`}>
+                            Higher depth = stronger play but slower thinking time.
+                        </p>
+                    </div>
+                  )}
+              </div>
+          </div>
+      )
+  }
+
   const AnalysisMessage = () => (
     <div className="w-full max-w-[600px] lg:max-w-[800px] min-h-[50px] mb-2 transition-all">
         {aiThinking ? (
-            <div className="bg-stone-800/50 rounded-xl p-2 border border-amber-500/30 flex items-center justify-center gap-3 text-amber-400 animate-pulse">
-                <div className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                <div className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                <div className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+            <div className={`${activeTheme.panelBg} rounded-xl p-2 border border-amber-500/30 flex items-center justify-center gap-3 text-amber-500 animate-pulse`}>
+                <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                 <span className="text-xs md:text-sm">AI Thinking...</span>
             </div>
         ) : aiReasoning ? (
-            <div className="bg-stone-800/50 rounded-xl p-2 md:p-3 border border-purple-500/30 backdrop-blur-sm animate-fade-in">
-                <h3 className="text-[10px] md:text-xs font-bold text-purple-400 uppercase mb-1 flex items-center gap-2"><Sparkles className="w-3 h-3"/> Gemini Analysis</h3>
-                <p className="text-xs md:text-sm text-stone-300 italic leading-relaxed">"{aiReasoning}"</p>
+            <div className={`${activeTheme.panelBg} rounded-xl p-2 md:p-3 border border-purple-500/30 backdrop-blur-sm animate-fade-in`}>
+                <h3 className="text-[10px] md:text-xs font-bold text-purple-500 uppercase mb-1 flex items-center gap-2"><Sparkles className="w-3 h-3"/> Gemini Analysis</h3>
+                <p className={`text-xs md:text-sm ${activeTheme.textMain} italic leading-relaxed`}>"{aiReasoning}"</p>
             </div>
         ) : null}
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-stone-900 text-stone-100 font-serif overflow-x-hidden">
+    <div className={`min-h-screen font-serif overflow-x-hidden transition-colors duration-500 ${activeTheme.bgApp} ${activeTheme.textMain}`}>
         
         {(gameStatus === GameStatus.RedWin || gameStatus === GameStatus.BlackWin) && <Confetti />}
+        
+        <SettingsModal />
 
         <div className="container mx-auto p-2 md:p-4 lg:p-8 min-h-screen flex flex-col lg:flex-row items-start justify-center gap-4 lg:gap-10">
 
-            {/* Desktop Left Sidebar (Two Column Layout) */}
+            {/* Desktop Left Sidebar */}
             <div className="hidden lg:flex flex-col gap-4 w-[360px] shrink-0 h-[calc(100vh-4rem)] sticky top-8">
                 <ScoreboardCard />
                 <SettingsCard />
@@ -402,23 +544,31 @@ function App() {
                 </div>
             </div>
 
-            {/* Center: Game Board Area (Mobile: Mix of elements, Desktop: Right Column) */}
+            {/* Center: Game Board Area */}
             <div className="flex-1 flex flex-col items-center w-full">
                 
-                {/* Title moved here for both mobile and desktop */}
-                <h1 className="text-3xl md:text-5xl font-bold font-calligraphy text-amber-500 drop-shadow-md tracking-widest mb-2 md:mb-4 text-center">
-                    中国象棋
-                </h1>
+                {/* Title */}
+                <div className="relative w-full text-center mb-2 md:mb-4">
+                    <h1 className={`text-3xl md:text-5xl font-bold font-calligraphy ${activeTheme.accentText} drop-shadow-md tracking-widest`}>
+                        中国象棋
+                    </h1>
+                    {/* Mobile Settings Button (Absolute positioned relative to title area) */}
+                    <button 
+                        onClick={() => setIsSettingsOpen(true)}
+                        className={`lg:hidden absolute right-0 top-1/2 -translate-y-1/2 p-2 rounded-full ${activeTheme.highlightBg} ${activeTheme.textMuted}`}
+                    >
+                        <Settings className="w-5 h-5" />
+                    </button>
+                </div>
 
-                {/* AI Message moved below Title */}
                 <AnalysisMessage />
 
-                {/* Mobile: Scoreboard (Under title/AI on mobile) */}
+                {/* Mobile: Scoreboard */}
                 <div className="lg:hidden w-full max-w-[600px] mb-4">
                    <ScoreboardCard />
                 </div>
 
-                {/* Board Container */}
+                {/* Board */}
                 <div className="w-full max-w-[600px] lg:max-w-[800px]">
                     <Board 
                         board={board} 
@@ -427,6 +577,11 @@ function App() {
                         validMoves={validMoves}
                         lastMove={lastMove}
                         rotateBlack={aiModel === AIModel.None}
+                        // Theme Props
+                        boardBgClass={activeTheme.boardBg}
+                        boardBorderClass={activeTheme.boardBorder}
+                        gridColor={activeTheme.gridColor}
+                        woodTexture={activeTheme.woodTexture}
                     />
                 </div>
 
