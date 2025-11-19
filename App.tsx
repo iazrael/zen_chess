@@ -29,7 +29,7 @@ function App() {
   const [aiThinking, setAiThinking] = useState(false);
   const [aiReasoning, setAiReasoning] = useState<string | null>(null);
 
-  const movesEndRef = useRef<HTMLDivElement>(null);
+  const historyContainerRef = useRef<HTMLDivElement>(null);
 
   // Timer Logic
   useEffect(() => {
@@ -85,12 +85,14 @@ function App() {
     }
   }, []);
 
-  const scrollToBottom = () => {
-    movesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
+  // Auto-scroll history container to bottom only (prevents page jump)
   useEffect(() => {
-    scrollToBottom();
+    if (historyContainerRef.current) {
+        const { scrollHeight, clientHeight } = historyContainerRef.current;
+        if (scrollHeight > clientHeight) {
+            historyContainerRef.current.scrollTo({ top: scrollHeight, behavior: 'smooth' });
+        }
+    }
   }, [moveList]);
 
   const handleSquareClick = async (pos: Position) => {
@@ -348,7 +350,10 @@ function App() {
             <ScrollText className="w-4 h-4 text-amber-500" />
             History
             </div>
-            <div className="flex-1 overflow-y-auto p-3 space-y-1 scrollbar-thin scrollbar-thumb-stone-600 scrollbar-track-stone-800">
+            <div 
+                ref={historyContainerRef} 
+                className="flex-1 overflow-y-auto p-3 space-y-1 scrollbar-thin scrollbar-thumb-stone-600 scrollbar-track-stone-800"
+            >
             {moveList.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center opacity-30 text-stone-500">
                     <div className="text-2xl font-calligraphy mb-1">观棋不语</div>
@@ -367,7 +372,6 @@ function App() {
                     );
                 })
             )}
-            <div ref={movesEndRef} />
             </div>
     </div>
   );
