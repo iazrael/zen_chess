@@ -46,6 +46,7 @@ export enum AIModel {
   Traditional = 'minimax',
   GeminiFlash = 'gemini-flash',
   GeminiPro = 'gemini-pro',
+  OpenAI = 'openai',
 }
 
 export interface GameContextType {

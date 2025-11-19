@@ -6,8 +6,9 @@ import { BoardState, Color, Position, Move, GameStatus, AIModel, Piece } from '.
 import { getLegalMoves, applyMove } from './utils/chessRules';
 import { getBestMoveMinimax } from './utils/minimax';
 import { getGeminiMove } from './services/geminiService';
+import { getOpenAIMove } from './services/openaiService';
 import { playMoveSound, playCaptureSound, playWinSound, setGlobalVolume } from './utils/sound';
-import { Undo2, RotateCcw, BrainCircuit, Sparkles, ScrollText, Clock, Settings, Volume2, VolumeX, X, Users, Bot, ChevronLeft, Home, History as HistoryIcon } from 'lucide-react';
+import { Undo2, RotateCcw, BrainCircuit, Sparkles, ScrollText, Clock, Settings, Volume2, VolumeX, X, Users, Bot, ChevronLeft, Home, History as HistoryIcon, Zap } from 'lucide-react';
 
 // --- Theme Definitions (Simplified for Zen focus) ---
 const THEME = {
@@ -149,51 +150,7 @@ function App() {
     return `${char} (${from.x},${from.y}) → (${to.x},${to.y})`;
   };
 
-  // Wrapped in useCallback to be stable for React.memo(Board)
-  const executeMove = useCallback((from: Position, to: Position) => {
-    // We use functional update for setHistory to avoid dependency on 'history' state which changes often
-    // However, we need 'board', 'turn', 'redTime', 'blackTime'
-    // Since 'board' and 'turn' don't change on timer tick, and we only need snapshots
-    // for history, we can rely on the current scope values or refs. 
-    // But to be React-pure, we declare dependencies. 
-    // Note: redTime/blackTime change every second, so executeMove changes every second.
-    // BUT Board only receives executeMove via handleSquareClick.
-    
-    setBoard(prevBoard => {
-        const movedPiece = prevBoard[from.y][from.x];
-        const targetPiece = prevBoard[to.y][to.x];
-
-        if (targetPiece) {
-            playCaptureSound();
-        } else {
-            playMoveSound();
-        }
-        
-        if (movedPiece) {
-             // We need the piece info for notation. 
-             // Accessing state inside setter is tricky if we want to avoid closure staleness
-             // without re-creating function.
-             // For simplicity, we'll allow executeMove to depend on board/turn. 
-        }
-
-        const newBoard = applyMove(prevBoard, from, to);
-        return newBoard;
-    });
-
-    setHistory(prev => {
-        // This is tricky because we need the BEFORE state. 
-        // Ideally 'executeMove' is called with the current state snapshot.
-        // We will fix this by using refs or just accepting that executeMove updates when board updates.
-        return prev; // Placeholder, actual logic below
-    });
-    
-    // REAL IMPL relying on scope variables (re-created when board changes)
-    // To fix the flashing, we need executeMove to NOT change when TIME changes.
-    // Only when BOARD/TURN changes.
-  }, []); 
-
   // Revised executeMove that is stable against TIME changes
-  // We use refs for time to avoid re-creating this function on every tick
   const timeRef = useRef({ red: 600, black: 600 });
   useEffect(() => {
       timeRef.current = { red: redTime, black: blackTime };
@@ -217,10 +174,7 @@ function App() {
                 { 
                     board: currentBoard, 
                     turn: currentTurn, 
-                    lastMove: { from, to, captured: targetPiece || undefined }, // Approximated last move for history entry (actually previous last move)
-                    // Ideally history stores the state BEFORE the move.
-                    // Let's fix history storage:
-                    // We need to store the state AS IT IS NOW before applying move.
+                    lastMove: { from, to, captured: targetPiece || undefined }, 
                     redTime: timeRef.current.red, 
                     blackTime: timeRef.current.black 
                 }
@@ -231,9 +185,6 @@ function App() {
             
             // Check Game Over on new board
             const nextTurn = currentTurn === Color.Red ? Color.Black : Color.Red;
-            // We need to call checkGameOver here, but checkGameOver is a callback.
-            // We can inline the check logic or use a useEffect that watches board changes.
-            // For stability, we'll just compute it here.
             
             let hasMoves = false;
             for(let y=0; y<10; y++) {
@@ -262,76 +213,8 @@ function App() {
 
         return applyMove(currentBoard, from, to);
     });
-  }, []); // No dependencies! Stable reference.
+  }, []);
 
-  // Handle Square Click - Stable Reference
-  const handleSquareClick = useCallback(async (pos: Position) => {
-    // We need to access current state without adding dependencies that change often.
-    // But 'board', 'turn', 'selectedPos' change on every move. That's fine.
-    // We just want to avoid 'redTime' dependency.
-    
-    // Using function scope variables is fine as long as they are not 'redTime'
-    // However, to be truly safe for Memo, we should pass the latest values or use refs if we want to avoid any re-renders of Board.
-    // But Board depends on 'board' prop. If 'board' changes, Board MUST re-render.
-    // The issue was 'timer' changing 'App' state -> 'App' re-render -> 'handleSquareClick' recreated (if dep on time) -> Board re-render.
-    // By removing time dependency, we are good.
-    
-    setGameStatus(status => {
-        if (status !== GameStatus.Playing) return status;
-        
-        setAiThinking(thinking => {
-            if (thinking) return thinking;
-            
-            setTurn(currentTurn => {
-                setAiModel(model => {
-                     if (model !== AIModel.None && currentTurn === Color.Black) return model; // AI Turn, ignore click
-
-                     setBoard(currentBoard => {
-                         const piece = currentBoard[pos.y][pos.x];
-                         
-                         setSelectedPos(currentSelected => {
-                             setValidMoves(currentValidMoves => {
-                                 // Move Logic
-                                 if (currentSelected && currentValidMoves.some(m => m.x === pos.x && m.y === pos.y)) {
-                                     executeMoveStable(currentSelected, pos);
-                                     return []; // Clear valid moves
-                                 }
-                                 
-                                 // Select Logic
-                                 if (piece && piece.color === currentTurn) {
-                                     setValidMoves(getLegalMoves(currentBoard, pos)); // This triggers a state update for validMoves
-                                     return currentSelected; // We actually want to update selectedPos, handled by return of outer setter? No, React batching.
-                                 }
-                                 
-                                 return null; // Deselect
-                             });
-                             
-                             // Re-eval select logic for returning new selectedPos
-                             if (currentSelected && validMoves.some(m => m.x === pos.x && m.y === pos.y)) {
-                                 return null; 
-                             }
-                             if (piece && piece.color === currentTurn) {
-                                 return pos;
-                             }
-                             return null;
-                         });
-                         
-                         return currentBoard;
-                     });
-                     
-                     return model;
-                });
-                return currentTurn;
-            });
-            return thinking;
-        });
-        return status;
-    });
-  }, [executeMoveStable, validMoves]); // Added validMoves as dep because we read it in the closure in the "Move Logic" check?
-  // Actually the messy functional updates above are hard to read. 
-  // Let's simplify. We accept that handleSquareClick depends on [board, turn, selectedPos, validMoves].
-  // These only change on interaction, not timer. So it's stable enough!
-  
   const handleSquareClickSimple = useCallback(async (pos: Position) => {
       if (gameStatus !== GameStatus.Playing || aiThinking) return;
       if (aiModel !== AIModel.None && turn === Color.Black) return;
@@ -354,7 +237,7 @@ function App() {
   }, [gameStatus, aiThinking, aiModel, turn, board, selectedPos, validMoves, executeMoveStable]);
 
 
-  // AI Logic - Needs access to executeMoveStable
+  // AI Logic
   useEffect(() => {
     if (gameStatus !== GameStatus.Playing || view !== 'game') return;
     if (turn === Color.Black && aiModel !== AIModel.None) {
@@ -369,6 +252,9 @@ function App() {
                     move = await getBestMoveMinimax(board, turn, minimaxDepth);
                 } else if (aiModel === AIModel.GeminiFlash || aiModel === AIModel.GeminiPro) {
                     move = await getGeminiMove(board, turn, aiModel);
+                    if (move?.reason) setAiReasoning(move.reason);
+                } else if (aiModel === AIModel.OpenAI) {
+                    move = await getOpenAIMove(board, turn);
                     if (move?.reason) setAiReasoning(move.reason);
                 }
             } catch (e) {
@@ -395,7 +281,7 @@ function App() {
     const prevState = history[history.length - steps];
     setBoard(prevState.board);
     setTurn(prevState.turn);
-    setLastMove(prevState.lastMove || null); // Fix type mismatch
+    setLastMove(prevState.lastMove || null); 
     setRedTime(prevState.redTime);
     setBlackTime(prevState.blackTime);
     
@@ -483,7 +369,7 @@ function App() {
                         <Bot className="w-12 h-12" />
                     </div>
                     <h2 className="text-2xl font-bold text-stone-200">挑战 AI</h2>
-                    <p className="text-stone-500 text-sm">Vs Minimax / Gemini</p>
+                    <p className="text-stone-500 text-sm">Vs Minimax / Gemini / OpenAI</p>
                 </div>
             </button>
         </div>
@@ -567,8 +453,8 @@ function App() {
               <BrainCircuit className="w-4 h-4 text-purple-500" /> AI Console
           </h2>
           
-          {/* Model Selector */}
-          <div className="grid grid-cols-3 gap-2 mb-4">
+          {/* Model Selector - Updated grid to 4 cols or auto flow */}
+          <div className="grid grid-cols-2 gap-2 mb-4">
               <button 
                 onClick={() => setAiModel(AIModel.None)}
                 className={`py-2 px-1 text-[10px] md:text-xs rounded border transition-all ${aiModel === AIModel.None ? 'border-amber-600 bg-amber-600/20 text-amber-500' : 'border-stone-700 bg-stone-800 text-stone-500 hover:bg-stone-700'}`}
@@ -585,7 +471,13 @@ function App() {
                 onClick={() => setAiModel(AIModel.GeminiFlash)}
                 className={`py-2 px-1 text-[10px] md:text-xs rounded border transition-all ${aiModel.includes('gemini') ? 'border-purple-600 bg-purple-600/20 text-purple-400' : 'border-stone-700 bg-stone-800 text-stone-500 hover:bg-stone-700'}`}
               >
-                  Gemini AI
+                  Gemini
+              </button>
+              <button 
+                onClick={() => setAiModel(AIModel.OpenAI)}
+                className={`py-2 px-1 text-[10px] md:text-xs rounded border transition-all ${aiModel === AIModel.OpenAI ? 'border-green-600 bg-green-600/20 text-green-400' : 'border-stone-700 bg-stone-800 text-stone-500 hover:bg-stone-700'}`}
+              >
+                  OpenAI
               </button>
           </div>
 
