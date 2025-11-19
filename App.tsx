@@ -384,7 +384,8 @@ function App() {
         <div className="container mx-auto p-2 md:p-4 lg:p-8 min-h-screen flex flex-col lg:flex-row items-start justify-center gap-4 lg:gap-8">
 
             {/* Left Panel (Desktop) / Top Panel (Mobile) */}
-            <div className="w-full lg:w-[320px] flex flex-col gap-4 order-1 lg:order-1">
+            {/* Mobile: Max width 600px & Centered. Desktop: 320px */}
+            <div className="w-full max-w-[600px] lg:max-w-none mx-auto lg:mx-0 lg:w-[320px] flex flex-col gap-4 order-1 lg:order-1">
                 <ScoreboardCard />
                 
                 {/* Settings hidden on mobile here, shown below board */}
@@ -407,7 +408,8 @@ function App() {
                 </div>
 
                 {/* AI Thinking / Message Area */}
-                <div className="w-full mt-4 min-h-[80px] transition-all">
+                {/* Max width 600px to align with board on mobile */}
+                <div className="w-full max-w-[600px] mt-4 min-h-[80px] transition-all">
                     {aiThinking ? (
                         <div className="bg-stone-800/50 rounded-xl p-3 border border-amber-500/30 flex items-center justify-center gap-3 text-amber-400 animate-pulse">
                             <div className="w-2 h-2 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
@@ -424,13 +426,14 @@ function App() {
                 </div>
 
                 {/* Mobile: Settings shown below board */}
-                <div className="block lg:hidden w-full mb-4">
+                <div className="block lg:hidden w-full max-w-[600px] mb-4">
                     <SettingsCard />
                 </div>
             </div>
             
             {/* Right Panel: History (Desktop) / Bottom Panel (Mobile) */}
-            <div className="w-full lg:w-[280px] flex flex-col order-3 lg:order-3">
+            {/* Mobile: Max width 600px & Centered. Desktop: 280px */}
+            <div className="w-full max-w-[600px] lg:max-w-none mx-auto lg:mx-0 lg:w-[280px] flex flex-col order-3 lg:order-3">
                  <HistoryCard />
             </div>
 
