@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Board } from './components/Board';
+import { Confetti } from './components/Confetti';
 import { INITIAL_BOARD, PIECE_CHARS } from './constants';
 import { BoardState, Color, Position, Move, GameStatus, AIModel, Piece } from './types';
 import { getValidMovesForPiece, getLegalMoves, applyMove, isCheck } from './utils/chessRules';
 import { getBestMoveMinimax } from './utils/minimax';
 import { getGeminiMove } from './services/geminiService';
+import { playMoveSound, playCaptureSound, playWinSound } from './utils/sound';
 import { Undo2, RotateCcw, BrainCircuit, Sparkles, ScrollText, Clock, Timer } from 'lucide-react';
 
 function App() {
@@ -55,6 +57,13 @@ function App() {
 
     return () => clearInterval(timer);
   }, [turn, gameStatus, initialTime]);
+
+  // Effect to play sound on game over
+  useEffect(() => {
+      if (gameStatus === GameStatus.RedWin || gameStatus === GameStatus.BlackWin) {
+          playWinSound();
+      }
+  }, [gameStatus]);
 
   // Check for game over conditions (Checkmate/Stalemate)
   const checkGameOver = useCallback((currentBoard: BoardState, currentTurn: Color) => {
@@ -122,6 +131,15 @@ function App() {
     setHistory(prev => [...prev, { board, turn, lastMove, redTime, blackTime }]);
 
     const movedPiece = board[from.y][from.x];
+    const targetPiece = board[to.y][to.x];
+
+    // Sound Effects
+    if (targetPiece) {
+        playCaptureSound();
+    } else {
+        playMoveSound();
+    }
+
     if (movedPiece) {
       const notation = getMoveNotation(movedPiece, from, to);
       setMoveList(prev => [...prev, notation]);
@@ -130,7 +148,7 @@ function App() {
     const newBoard = applyMove(board, from, to);
     
     setBoard(newBoard);
-    setLastMove({ from, to, captured: board[to.y][to.x] || undefined });
+    setLastMove({ from, to, captured: targetPiece || undefined });
     setSelectedPos(null);
     setValidMoves([]);
     
@@ -247,8 +265,10 @@ function App() {
   return (
     <div className="min-h-screen bg-stone-900 text-stone-100 flex flex-col lg:flex-row items-center justify-center p-4 font-serif">
         
+        {(gameStatus === GameStatus.RedWin || gameStatus === GameStatus.BlackWin) && <Confetti />}
+
         {/* Left Panel: Controls & Info */}
-        <div className="w-full lg:w-1/4 max-w-[400px] p-4 flex flex-col gap-6 order-2 lg:order-1">
+        <div className="w-full lg:w-1/4 max-w-[400px] p-4 flex flex-col gap-6 order-2 lg:order-1 z-10">
             
             <div className="bg-stone-800/50 rounded-xl p-6 shadow-lg border border-stone-700 backdrop-blur-sm">
                 <h1 className="text-4xl font-bold mb-2 font-calligraphy text-amber-500">中国象棋</h1>
@@ -366,7 +386,7 @@ function App() {
         </div>
 
         {/* Center: Game Board */}
-        <div className="order-1 lg:order-2 p-4 flex items-center justify-center w-full max-w-[800px]">
+        <div className="order-1 lg:order-2 p-4 flex items-center justify-center w-full max-w-[800px] z-10">
             <Board 
                 board={board} 
                 onSquareClick={handleSquareClick}
@@ -377,7 +397,7 @@ function App() {
         </div>
         
         {/* Right Panel: Move List */}
-        <div className="hidden lg:block w-1/4 h-[600px] order-3 max-w-[400px] p-4">
+        <div className="hidden lg:block w-1/4 h-[600px] order-3 max-w-[400px] p-4 z-10">
             <div className="h-full bg-stone-800/50 rounded-xl shadow-lg border border-stone-700 backdrop-blur-sm flex flex-col overflow-hidden">
                  <div className="p-4 border-b border-stone-700 bg-stone-800 flex items-center gap-2 text-stone-300 font-bold">
                     <ScrollText className="w-5 h-5 text-amber-500" />
