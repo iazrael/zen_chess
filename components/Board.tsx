@@ -15,7 +15,8 @@ export const Board: React.FC<BoardProps> = ({ board, onSquareClick, selectedPos,
   
   return (
     // Outer Frame (Wood texture, padding, border, shadow)
-    <div className="relative w-full max-w-[600px] bg-wood-500 rounded-lg shadow-2xl p-1 md:p-3 border-[4px] border-wood-700 select-none">
+    // Removed max-w-[600px], let parent control width
+    <div className="relative w-full bg-wood-500 rounded-lg shadow-2xl p-1 md:p-3 border-[4px] border-wood-700 select-none">
       
       {/* Inner Coordinate System Container (Strict Aspect Ratio, No Padding) */}
       <div className="relative w-full aspect-[9/10]">

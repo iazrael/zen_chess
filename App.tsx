@@ -344,8 +344,8 @@ function App() {
     </div>
   );
 
-  const HistoryCard = () => (
-    <div className="h-[300px] lg:h-[600px] w-full bg-stone-800/50 rounded-xl shadow-lg border border-stone-700 backdrop-blur-sm flex flex-col overflow-hidden">
+  const HistoryCard = ({ className = "" }: { className?: string }) => (
+    <div className={`bg-stone-800/50 rounded-xl shadow-lg border border-stone-700 backdrop-blur-sm flex flex-col overflow-hidden ${className}`}>
             <div className="p-3 border-b border-stone-700 bg-stone-800 flex items-center gap-2 text-stone-300 font-bold text-xs uppercase tracking-wider">
             <ScrollText className="w-4 h-4 text-amber-500" />
             History
@@ -381,22 +381,27 @@ function App() {
         
         {(gameStatus === GameStatus.RedWin || gameStatus === GameStatus.BlackWin) && <Confetti />}
 
-        <div className="container mx-auto p-2 md:p-4 lg:p-8 min-h-screen flex flex-col lg:flex-row items-start justify-center gap-4 lg:gap-8">
+        <div className="container mx-auto p-2 md:p-4 lg:p-8 min-h-screen flex flex-col lg:flex-row items-start justify-center gap-4 lg:gap-10">
 
-            {/* Left Panel (Desktop) / Top Panel (Mobile) */}
-            {/* Mobile: Max width 600px & Centered. Desktop: 320px */}
-            <div className="w-full max-w-[600px] lg:max-w-none mx-auto lg:mx-0 lg:w-[320px] flex flex-col gap-4 order-1 lg:order-1">
+            {/* Desktop Left Sidebar (Two Column Layout) */}
+            <div className="hidden lg:flex flex-col gap-4 w-[360px] shrink-0 h-[calc(100vh-4rem)] sticky top-8">
                 <ScoreboardCard />
-                
-                {/* Settings hidden on mobile here, shown below board */}
-                <div className="hidden lg:block">
-                    <SettingsCard />
+                <SettingsCard />
+                <div className="flex-1 min-h-0">
+                    <HistoryCard className="h-full" />
                 </div>
             </div>
 
-            {/* Center: Game Board */}
-            <div className="flex-1 w-full max-w-[800px] flex flex-col items-center order-2 lg:order-2">
-                <div className="w-full flex justify-center">
+            {/* Center: Game Board Area (Mobile: Mix of elements, Desktop: Right Column) */}
+            <div className="flex-1 flex flex-col items-center w-full">
+                
+                {/* Mobile: Top Scoreboard */}
+                <div className="lg:hidden w-full max-w-[600px] mb-4">
+                   <ScoreboardCard />
+                </div>
+
+                {/* Board Container - Max width 800px on desktop for wider view */}
+                <div className="w-full max-w-[600px] lg:max-w-[800px]">
                     <Board 
                         board={board} 
                         onSquareClick={handleSquareClick}
@@ -407,9 +412,8 @@ function App() {
                     />
                 </div>
 
-                {/* AI Thinking / Message Area */}
-                {/* Max width 600px to align with board on mobile */}
-                <div className="w-full max-w-[600px] mt-4 min-h-[80px] transition-all">
+                {/* AI Message */}
+                <div className="w-full max-w-[600px] lg:max-w-[800px] mt-4 min-h-[80px] transition-all">
                     {aiThinking ? (
                         <div className="bg-stone-800/50 rounded-xl p-3 border border-amber-500/30 flex items-center justify-center gap-3 text-amber-400 animate-pulse">
                             <div className="w-2 h-2 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
@@ -425,18 +429,12 @@ function App() {
                     ) : null}
                 </div>
 
-                {/* Mobile: Settings shown below board */}
-                <div className="block lg:hidden w-full max-w-[600px] mb-4">
+                {/* Mobile: Bottom Settings & History */}
+                <div className="lg:hidden w-full max-w-[600px] flex flex-col gap-4 mt-4">
                     <SettingsCard />
+                    <HistoryCard className="h-[300px]" />
                 </div>
             </div>
-            
-            {/* Right Panel: History (Desktop) / Bottom Panel (Mobile) */}
-            {/* Mobile: Max width 600px & Centered. Desktop: 280px */}
-            <div className="w-full max-w-[600px] lg:max-w-none mx-auto lg:mx-0 lg:w-[280px] flex flex-col order-3 lg:order-3">
-                 <HistoryCard />
-            </div>
-
         </div>
     </div>
   );
