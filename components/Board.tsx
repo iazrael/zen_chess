@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { BoardState, Position, Color, Move } from '../types';
 import { PieceComponent } from './Piece';
 
@@ -16,7 +16,8 @@ interface BoardProps {
   woodTexture?: boolean;
 }
 
-export const Board: React.FC<BoardProps> = ({ 
+// Use memo to prevent re-renders when parent state (like timer) changes but board props do not
+export const Board = memo(({ 
   board, 
   onSquareClick, 
   selectedPos, 
@@ -27,7 +28,7 @@ export const Board: React.FC<BoardProps> = ({
   boardBorderClass = "border-wood-700",
   gridColor = "#543d18",
   woodTexture = true
-}) => {
+}: BoardProps) => {
   
   return (
     // Outer Frame
@@ -145,4 +146,6 @@ export const Board: React.FC<BoardProps> = ({
       </div>
     </div>
   );
-};
+});
+
+Board.displayName = 'Board';

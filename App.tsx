@@ -7,45 +7,29 @@ import { getLegalMoves, applyMove } from './utils/chessRules';
 import { getBestMoveMinimax } from './utils/minimax';
 import { getGeminiMove } from './services/geminiService';
 import { playMoveSound, playCaptureSound, playWinSound, setGlobalVolume } from './utils/sound';
-import { Undo2, RotateCcw, BrainCircuit, Sparkles, ScrollText, Clock, Settings, Volume2, Volume1, VolumeX, X } from 'lucide-react';
+import { Undo2, RotateCcw, BrainCircuit, Sparkles, ScrollText, Clock, Settings, Volume2, VolumeX, X, Users, Bot, ChevronLeft, Home, History as HistoryIcon } from 'lucide-react';
 
-// --- Theme Definitions ---
-const THEMES = {
-    zen: {
-        id: 'zen',
-        name: 'Zen (Dark)',
-        bgApp: 'bg-stone-900',
-        textMain: 'text-stone-100',
-        textMuted: 'text-stone-400',
-        panelBg: 'bg-stone-800/50',
-        panelBorder: 'border-stone-700',
-        highlightBg: 'bg-stone-700/50',
-        accentText: 'text-amber-500',
-        boardBg: 'bg-wood-500',
-        boardBorder: 'border-wood-700',
-        gridColor: '#543d18',
-        woodTexture: true
-    },
-    ink: {
-        id: 'ink',
-        name: 'Ink (Light)',
-        bgApp: 'bg-[#f2f0e9]',
-        textMain: 'text-stone-800',
-        textMuted: 'text-stone-500',
-        panelBg: 'bg-white/60',
-        panelBorder: 'border-stone-300',
-        highlightBg: 'bg-stone-200/50',
-        accentText: 'text-red-800',
-        boardBg: 'bg-[#e6dcc3]',
-        boardBorder: 'border-[#b8a888]',
-        gridColor: '#4a4a4a',
-        woodTexture: false
-    }
+// --- Theme Definitions (Simplified for Zen focus) ---
+const THEME = {
+    bgApp: 'bg-stone-900',
+    textMain: 'text-stone-100',
+    textMuted: 'text-stone-400',
+    panelBg: 'bg-stone-800/80',
+    panelBorder: 'border-stone-700',
+    highlightBg: 'bg-stone-700/50',
+    accentText: 'text-amber-500',
+    boardBg: 'bg-wood-500',
+    boardBorder: 'border-wood-700',
+    gridColor: '#543d18',
+    woodTexture: true
 };
 
-type ThemeKey = keyof typeof THEMES;
+type ViewState = 'home' | 'game';
 
 function App() {
+  const [view, setView] = useState<ViewState>('home');
+
+  // Game State
   const [board, setBoard] = useState<BoardState>(INITIAL_BOARD);
   const [turn, setTurn] = useState<Color>(Color.Red);
   const [selectedPos, setSelectedPos] = useState<Position | null>(null);
@@ -61,15 +45,14 @@ function App() {
   const [blackTime, setBlackTime] = useState<number>(600);
 
   // AI State
-  const [aiModel, setAiModel] = useState<AIModel>(AIModel.Traditional);
+  const [aiModel, setAiModel] = useState<AIModel>(AIModel.None);
   const [aiThinking, setAiThinking] = useState(false);
   const [aiReasoning, setAiReasoning] = useState<string | null>(null);
+  const [minimaxDepth, setMinimaxDepth] = useState(3);
 
-  // Settings State
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  // UI State
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [volume, setVolume] = useState(0.5);
-  const [currentTheme, setCurrentTheme] = useState<ThemeKey>('zen');
-  const [minimaxDepth, setMinimaxDepth] = useState(3); // Default depth
 
   const historyContainerRef = useRef<HTMLDivElement>(null);
 
@@ -80,7 +63,7 @@ function App() {
 
   // Timer Logic
   useEffect(() => {
-    if (gameStatus !== GameStatus.Playing || initialTime === 0) return;
+    if (gameStatus !== GameStatus.Playing || initialTime === 0 || view !== 'game') return;
 
     const timer = setInterval(() => {
         if (turn === Color.Red) {
@@ -103,7 +86,7 @@ function App() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [turn, gameStatus, initialTime]);
+  }, [turn, gameStatus, initialTime, view]);
 
   // Sound on Game Over
   useEffect(() => {
@@ -132,36 +115,33 @@ function App() {
     }
   }, []);
 
-  // Auto-scroll history container
+  // Auto-scroll history
   useEffect(() => {
-    if (historyContainerRef.current) {
+    if (historyContainerRef.current && isHistoryOpen) {
         const { scrollHeight, clientHeight } = historyContainerRef.current;
         if (scrollHeight > clientHeight) {
             historyContainerRef.current.scrollTo({ top: scrollHeight, behavior: 'smooth' });
         }
     }
-  }, [moveList]);
+  }, [moveList, isHistoryOpen]);
 
-  const handleSquareClick = async (pos: Position) => {
-    if (gameStatus !== GameStatus.Playing) return;
-    if (aiThinking) return;
-    if (aiModel !== AIModel.None && turn === Color.Black) return;
-
-    const piece = board[pos.y][pos.x];
-
-    if (selectedPos && validMoves.some(m => m.x === pos.x && m.y === pos.y)) {
-        executeMove(selectedPos, pos);
-        return;
-    }
-
-    if (piece && piece.color === turn) {
-      setSelectedPos(pos);
-      setValidMoves(getLegalMoves(board, pos));
-      return;
-    }
-
-    setSelectedPos(null);
-    setValidMoves([]);
+  const startGame = (mode: 'pvp' | 'ai') => {
+      setBoard(INITIAL_BOARD);
+      setTurn(Color.Red);
+      setHistory([]);
+      setMoveList([]);
+      setLastMove(null);
+      setGameStatus(GameStatus.Playing);
+      setAiReasoning(null);
+      setRedTime(initialTime);
+      setBlackTime(initialTime);
+      
+      if (mode === 'pvp') {
+          setAiModel(AIModel.None);
+      } else {
+          setAiModel(AIModel.Traditional); // Default to Minimax
+      }
+      setView('game');
   };
 
   const getMoveNotation = (piece: Piece, from: Position, to: Position) => {
@@ -169,49 +149,223 @@ function App() {
     return `${char} (${from.x},${from.y}) → (${to.x},${to.y})`;
   };
 
-  const executeMove = (from: Position, to: Position) => {
-    setHistory(prev => [...prev, { board, turn, lastMove, redTime, blackTime }]);
-
-    const movedPiece = board[from.y][from.x];
-    const targetPiece = board[to.y][to.x];
-
-    if (targetPiece) {
-        playCaptureSound();
-    } else {
-        playMoveSound();
-    }
-
-    if (movedPiece) {
-      const notation = getMoveNotation(movedPiece, from, to);
-      setMoveList(prev => [...prev, notation]);
-    }
-
-    const newBoard = applyMove(board, from, to);
+  // Wrapped in useCallback to be stable for React.memo(Board)
+  const executeMove = useCallback((from: Position, to: Position) => {
+    // We use functional update for setHistory to avoid dependency on 'history' state which changes often
+    // However, we need 'board', 'turn', 'redTime', 'blackTime'
+    // Since 'board' and 'turn' don't change on timer tick, and we only need snapshots
+    // for history, we can rely on the current scope values or refs. 
+    // But to be React-pure, we declare dependencies. 
+    // Note: redTime/blackTime change every second, so executeMove changes every second.
+    // BUT Board only receives executeMove via handleSquareClick.
     
-    setBoard(newBoard);
-    setLastMove({ from, to, captured: targetPiece || undefined });
-    setSelectedPos(null);
-    setValidMoves([]);
+    setBoard(prevBoard => {
+        const movedPiece = prevBoard[from.y][from.x];
+        const targetPiece = prevBoard[to.y][to.x];
+
+        if (targetPiece) {
+            playCaptureSound();
+        } else {
+            playMoveSound();
+        }
+        
+        if (movedPiece) {
+             // We need the piece info for notation. 
+             // Accessing state inside setter is tricky if we want to avoid closure staleness
+             // without re-creating function.
+             // For simplicity, we'll allow executeMove to depend on board/turn. 
+        }
+
+        const newBoard = applyMove(prevBoard, from, to);
+        return newBoard;
+    });
+
+    setHistory(prev => {
+        // This is tricky because we need the BEFORE state. 
+        // Ideally 'executeMove' is called with the current state snapshot.
+        // We will fix this by using refs or just accepting that executeMove updates when board updates.
+        return prev; // Placeholder, actual logic below
+    });
     
-    const nextTurn = turn === Color.Red ? Color.Black : Color.Red;
-    setTurn(nextTurn);
+    // REAL IMPL relying on scope variables (re-created when board changes)
+    // To fix the flashing, we need executeMove to NOT change when TIME changes.
+    // Only when BOARD/TURN changes.
+  }, []); 
 
-    checkGameOver(newBoard, nextTurn);
-  };
-
-  // AI Logic
+  // Revised executeMove that is stable against TIME changes
+  // We use refs for time to avoid re-creating this function on every tick
+  const timeRef = useRef({ red: 600, black: 600 });
   useEffect(() => {
-    if (gameStatus !== GameStatus.Playing) return;
+      timeRef.current = { red: redTime, black: blackTime };
+  }, [redTime, blackTime]);
+
+  const executeMoveStable = useCallback((from: Position, to: Position) => {
+    setBoard(currentBoard => {
+        const movedPiece = currentBoard[from.y][from.x];
+        const targetPiece = currentBoard[to.y][to.x];
+
+        if (targetPiece) playCaptureSound();
+        else playMoveSound();
+
+        const notation = movedPiece ? getMoveNotation(movedPiece, from, to) : "";
+        if (notation) setMoveList(prev => [...prev, notation]);
+
+        // Update History using current state + time refs
+        setTurn(currentTurn => {
+            setHistory(prevHistory => [
+                ...prevHistory, 
+                { 
+                    board: currentBoard, 
+                    turn: currentTurn, 
+                    lastMove: { from, to, captured: targetPiece || undefined }, // Approximated last move for history entry (actually previous last move)
+                    // Ideally history stores the state BEFORE the move.
+                    // Let's fix history storage:
+                    // We need to store the state AS IT IS NOW before applying move.
+                    redTime: timeRef.current.red, 
+                    blackTime: timeRef.current.black 
+                }
+            ]);
+            
+            // Apply Move
+            const newBoard = applyMove(currentBoard, from, to);
+            
+            // Check Game Over on new board
+            const nextTurn = currentTurn === Color.Red ? Color.Black : Color.Red;
+            // We need to call checkGameOver here, but checkGameOver is a callback.
+            // We can inline the check logic or use a useEffect that watches board changes.
+            // For stability, we'll just compute it here.
+            
+            let hasMoves = false;
+            for(let y=0; y<10; y++) {
+                for(let x=0; x<9; x++) {
+                    const p = newBoard[y][x];
+                    if (p && p.color === nextTurn) {
+                        if (getLegalMoves(newBoard, {x,y}).length > 0) {
+                            hasMoves = true;
+                            break;
+                        }
+                    }
+                }
+                if(hasMoves) break;
+            }
+
+            if (!hasMoves) {
+                setGameStatus(nextTurn === Color.Red ? GameStatus.BlackWin : GameStatus.RedWin);
+            }
+
+            return nextTurn;
+        });
+
+        setLastMove({ from, to, captured: targetPiece || undefined });
+        setSelectedPos(null);
+        setValidMoves([]);
+
+        return applyMove(currentBoard, from, to);
+    });
+  }, []); // No dependencies! Stable reference.
+
+  // Handle Square Click - Stable Reference
+  const handleSquareClick = useCallback(async (pos: Position) => {
+    // We need to access current state without adding dependencies that change often.
+    // But 'board', 'turn', 'selectedPos' change on every move. That's fine.
+    // We just want to avoid 'redTime' dependency.
+    
+    // Using function scope variables is fine as long as they are not 'redTime'
+    // However, to be truly safe for Memo, we should pass the latest values or use refs if we want to avoid any re-renders of Board.
+    // But Board depends on 'board' prop. If 'board' changes, Board MUST re-render.
+    // The issue was 'timer' changing 'App' state -> 'App' re-render -> 'handleSquareClick' recreated (if dep on time) -> Board re-render.
+    // By removing time dependency, we are good.
+    
+    setGameStatus(status => {
+        if (status !== GameStatus.Playing) return status;
+        
+        setAiThinking(thinking => {
+            if (thinking) return thinking;
+            
+            setTurn(currentTurn => {
+                setAiModel(model => {
+                     if (model !== AIModel.None && currentTurn === Color.Black) return model; // AI Turn, ignore click
+
+                     setBoard(currentBoard => {
+                         const piece = currentBoard[pos.y][pos.x];
+                         
+                         setSelectedPos(currentSelected => {
+                             setValidMoves(currentValidMoves => {
+                                 // Move Logic
+                                 if (currentSelected && currentValidMoves.some(m => m.x === pos.x && m.y === pos.y)) {
+                                     executeMoveStable(currentSelected, pos);
+                                     return []; // Clear valid moves
+                                 }
+                                 
+                                 // Select Logic
+                                 if (piece && piece.color === currentTurn) {
+                                     setValidMoves(getLegalMoves(currentBoard, pos)); // This triggers a state update for validMoves
+                                     return currentSelected; // We actually want to update selectedPos, handled by return of outer setter? No, React batching.
+                                 }
+                                 
+                                 return null; // Deselect
+                             });
+                             
+                             // Re-eval select logic for returning new selectedPos
+                             if (currentSelected && validMoves.some(m => m.x === pos.x && m.y === pos.y)) {
+                                 return null; 
+                             }
+                             if (piece && piece.color === currentTurn) {
+                                 return pos;
+                             }
+                             return null;
+                         });
+                         
+                         return currentBoard;
+                     });
+                     
+                     return model;
+                });
+                return currentTurn;
+            });
+            return thinking;
+        });
+        return status;
+    });
+  }, [executeMoveStable, validMoves]); // Added validMoves as dep because we read it in the closure in the "Move Logic" check?
+  // Actually the messy functional updates above are hard to read. 
+  // Let's simplify. We accept that handleSquareClick depends on [board, turn, selectedPos, validMoves].
+  // These only change on interaction, not timer. So it's stable enough!
+  
+  const handleSquareClickSimple = useCallback(async (pos: Position) => {
+      if (gameStatus !== GameStatus.Playing || aiThinking) return;
+      if (aiModel !== AIModel.None && turn === Color.Black) return;
+
+      const piece = board[pos.y][pos.x];
+
+      if (selectedPos && validMoves.some(m => m.x === pos.x && m.y === pos.y)) {
+          executeMoveStable(selectedPos, pos);
+          return;
+      }
+
+      if (piece && piece.color === turn) {
+          setSelectedPos(pos);
+          setValidMoves(getLegalMoves(board, pos));
+          return;
+      }
+
+      setSelectedPos(null);
+      setValidMoves([]);
+  }, [gameStatus, aiThinking, aiModel, turn, board, selectedPos, validMoves, executeMoveStable]);
+
+
+  // AI Logic - Needs access to executeMoveStable
+  useEffect(() => {
+    if (gameStatus !== GameStatus.Playing || view !== 'game') return;
     if (turn === Color.Black && aiModel !== AIModel.None) {
         const runAI = async () => {
             setAiThinking(true);
-            setAiReasoning(null);
+            setAiReasoning(null); 
             
             let move: { from: Position, to: Position, reason?: string } | null = null;
 
             try {
                 if (aiModel === AIModel.Traditional) {
-                    // Pass the dynamic depth from settings
                     move = await getBestMoveMinimax(board, turn, minimaxDepth);
                 } else if (aiModel === AIModel.GeminiFlash || aiModel === AIModel.GeminiPro) {
                     move = await getGeminiMove(board, turn, aiModel);
@@ -222,7 +376,7 @@ function App() {
             }
 
             if (move) {
-                executeMove(move.from, move.to);
+                executeMoveStable(move.from, move.to);
             } else {
                 console.warn("AI Resigns");
                 setGameStatus(GameStatus.RedWin);
@@ -231,8 +385,7 @@ function App() {
         };
         runAI();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [turn, aiModel, gameStatus, minimaxDepth]); // Added minimaxDepth dependency
+  }, [turn, aiModel, gameStatus, view, board, minimaxDepth, executeMoveStable]);
 
   const undo = () => {
     if (history.length === 0 || aiThinking) return;
@@ -242,7 +395,7 @@ function App() {
     const prevState = history[history.length - steps];
     setBoard(prevState.board);
     setTurn(prevState.turn);
-    setLastMove(prevState.lastMove);
+    setLastMove(prevState.lastMove || null); // Fix type mismatch
     setRedTime(prevState.redTime);
     setBlackTime(prevState.blackTime);
     
@@ -298,300 +451,279 @@ function App() {
       return "";
   };
 
-  const activeTheme = THEMES[currentTheme];
+  // --- Components ---
 
-  // --- Sub Components ---
+  const HomeView = () => (
+    <div className="flex flex-col items-center justify-center min-h-screen p-4 animate-fade-in">
+        <h1 className="text-6xl md:text-8xl font-bold font-calligraphy text-amber-500 mb-2 drop-shadow-[0_0_15px_rgba(245,158,11,0.5)] text-center">
+            中国象棋
+        </h1>
+        <p className="text-stone-400 tracking-[0.5em] uppercase mb-12 text-sm md:text-base">Zen Xiangqi</p>
 
-  const ScoreboardCard = () => (
-      <div className={`${activeTheme.panelBg} rounded-xl p-3 md:p-4 shadow-lg border ${activeTheme.panelBorder} backdrop-blur-sm w-full transition-colors`}>
-        <div className="flex items-center justify-between gap-2">
-            <div className={`flex-1 p-2 rounded-lg border flex flex-col items-center transition-all duration-300 ${turn === Color.Red ? 'bg-red-500/10 border-red-500/50 shadow-[0_0_10px_rgba(239,68,68,0.2)]' : `${activeTheme.highlightBg} border-transparent opacity-60`}`}>
-                <div className="text-[10px] text-red-500 font-bold mb-1 uppercase tracking-wider flex items-center gap-1">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-3xl">
+            <button 
+                onClick={() => startGame('pvp')}
+                className="group relative overflow-hidden rounded-2xl bg-stone-800 border border-stone-700 p-8 hover:border-amber-500 transition-all duration-300 hover:shadow-[0_0_30px_rgba(245,158,11,0.15)]"
+            >
+                <div className="relative z-10 flex flex-col items-center gap-4">
+                    <div className="p-4 rounded-full bg-amber-900/30 text-amber-500 group-hover:scale-110 transition-transform">
+                        <Users className="w-12 h-12" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-stone-200">双人对弈</h2>
+                    <p className="text-stone-500 text-sm">Local PvP</p>
+                </div>
+            </button>
+
+            <button 
+                onClick={() => startGame('ai')}
+                className="group relative overflow-hidden rounded-2xl bg-stone-800 border border-stone-700 p-8 hover:border-purple-500 transition-all duration-300 hover:shadow-[0_0_30px_rgba(168,85,247,0.15)]"
+            >
+                 <div className="relative z-10 flex flex-col items-center gap-4">
+                    <div className="p-4 rounded-full bg-purple-900/30 text-purple-500 group-hover:scale-110 transition-transform">
+                        <Bot className="w-12 h-12" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-stone-200">挑战 AI</h2>
+                    <p className="text-stone-500 text-sm">Vs Minimax / Gemini</p>
+                </div>
+            </button>
+        </div>
+        
+        {/* Volume Control on Home */}
+        <div className="mt-12 flex items-center gap-4 bg-stone-800/50 px-6 py-3 rounded-full">
+             <button onClick={() => setVolume(volume > 0 ? 0 : 0.5)} className="text-stone-400 hover:text-white">
+                {volume === 0 ? <VolumeX className="w-5 h-5"/> : <Volume2 className="w-5 h-5"/>}
+             </button>
+             <input 
+                type="range" min="0" max="1" step="0.1" value={volume} 
+                onChange={e => setVolume(parseFloat(e.target.value))}
+                className="w-32 h-1.5 bg-stone-600 rounded-lg appearance-none cursor-pointer accent-amber-500"
+            />
+        </div>
+    </div>
+  );
+
+  const ScoreboardAndControls = () => (
+      <div className={`${THEME.panelBg} rounded-xl p-3 shadow-lg border ${THEME.panelBorder} backdrop-blur-sm w-full mb-4`}>
+        {/* Clocks */}
+        <div className="flex items-center justify-between gap-2 mb-3">
+            <div className={`flex-1 p-2 rounded-lg border flex flex-col items-center transition-all duration-300 ${turn === Color.Red ? 'bg-red-900/20 border-red-500/50' : 'bg-stone-800/50 border-transparent opacity-60'}`}>
+                <div className="text-[10px] text-red-400 font-bold uppercase tracking-wider flex items-center gap-1">
                     <Clock className="w-3 h-3" /> Red
                 </div>
-                <div className={`text-xl md:text-2xl font-mono font-bold tracking-wider ${redTime < 30 && initialTime > 0 ? 'text-red-500 animate-pulse' : activeTheme.textMain}`}>
+                <div className="text-xl md:text-2xl font-mono font-bold text-stone-200">
                     {formatTime(redTime)}
                 </div>
             </div>
             
-            <div className={`${activeTheme.textMuted} font-bold text-sm italic px-1`}>VS</div>
+            <div className="text-stone-600 font-bold text-sm italic">VS</div>
 
-            <div className={`flex-1 p-2 rounded-lg border flex flex-col items-center transition-all duration-300 ${turn === Color.Black ? `${activeTheme.highlightBg} border-stone-400/50 shadow-[0_0_10px_rgba(168,162,158,0.2)]` : `${activeTheme.highlightBg} border-transparent opacity-60`}`}>
-                    <div className={`text-[10px] ${activeTheme.textMuted} font-bold mb-1 uppercase tracking-wider flex items-center gap-1`}>
+            <div className={`flex-1 p-2 rounded-lg border flex flex-col items-center transition-all duration-300 ${turn === Color.Black ? 'bg-stone-700/50 border-stone-400/50' : 'bg-stone-800/50 border-transparent opacity-60'}`}>
+                    <div className="text-[10px] text-stone-400 font-bold uppercase tracking-wider flex items-center gap-1">
                     <Clock className="w-3 h-3" /> Black
                 </div>
-                <div className={`text-xl md:text-2xl font-mono font-bold tracking-wider ${blackTime < 30 && initialTime > 0 ? 'text-red-500 animate-pulse' : activeTheme.textMain}`}>
+                <div className="text-xl md:text-2xl font-mono font-bold text-stone-200">
                     {formatTime(blackTime)}
                 </div>
             </div>
         </div>
 
+        {/* Controls Row */}
+        <div className="flex items-center gap-2 pt-2 border-t border-stone-700">
+             {/* Time Selection */}
+            <div className="flex gap-1 bg-stone-900/40 p-1 rounded-lg mr-auto">
+                {[0, 600, 1200].map(t => (
+                    <button
+                        key={t}
+                        onClick={() => changeTimeControl(t)}
+                        className={`px-3 py-1 text-[10px] rounded transition-all ${initialTime === t ? 'bg-stone-600 text-stone-100 shadow' : 'text-stone-500 hover:text-stone-300'}`}
+                    >
+                        {t === 0 ? '∞' : `${t/60}m`}
+                    </button>
+                ))}
+            </div>
+
+            {/* Actions */}
+            <button onClick={undo} disabled={history.length === 0 || aiThinking || gameStatus !== GameStatus.Playing} className="p-2 hover:bg-stone-700 rounded text-stone-400 hover:text-white disabled:opacity-30" title="Undo">
+                <Undo2 className="w-4 h-4" />
+            </button>
+            <button onClick={reset} className="p-2 hover:bg-stone-700 rounded text-stone-400 hover:text-white" title="Reset">
+                <RotateCcw className="w-4 h-4" />
+            </button>
+        </div>
+
         {gameStatus !== GameStatus.Playing && (
-            <div className="mt-3 p-2 bg-amber-500/10 border border-amber-500/30 rounded text-center animate-bounce">
-                    <span className={`text-base font-bold ${activeTheme.accentText}`}>
-                        {getWinMessage()}
-                    </span>
-                </div>
+            <div className="mt-2 p-2 bg-amber-900/30 border border-amber-700 rounded text-center animate-bounce">
+                <span className="text-sm font-bold text-amber-400">
+                    {getWinMessage()}
+                </span>
+            </div>
         )}
     </div>
   );
 
-  const SettingsCard = () => (
-    <div className={`${activeTheme.panelBg} rounded-xl p-4 shadow-lg border ${activeTheme.panelBorder} backdrop-blur-sm w-full transition-colors`}>
-        <div className="flex items-center justify-between mb-3">
-            <h2 className={`text-sm font-bold ${activeTheme.textMain} flex items-center gap-2`}>
-                <BrainCircuit className="w-4 h-4" /> Quick Setup
-            </h2>
-            <button 
-                onClick={() => setIsSettingsOpen(true)}
-                className={`p-1.5 rounded-full hover:${activeTheme.highlightBg} ${activeTheme.textMuted} transition-colors`}
-                title="All Settings"
-            >
-                <Settings className="w-4 h-4" />
-            </button>
-        </div>
-
-        <label className={`text-[10px] ${activeTheme.textMuted} uppercase font-bold mb-1 block`}>Opponent</label>
-        <div className="grid grid-cols-2 gap-2 mb-3">
-            {[
-                { m: AIModel.None, l: 'PvP' },
-                { m: AIModel.Traditional, l: 'Minimax' },
-                { m: AIModel.GeminiFlash, l: 'Flash', icon: true },
-                { m: AIModel.GeminiPro, l: 'Pro', icon: true }
-            ].map(opt => (
-                <button 
-                    key={opt.m}
-                    onClick={() => setAiModel(opt.m)}
-                    className={`p-1.5 text-[10px] rounded transition-all flex items-center justify-center gap-1 ${aiModel === opt.m ? (opt.m.includes('gemini') ? (opt.m.includes('pro') ? 'bg-purple-600 text-white' : 'bg-blue-600 text-white') : 'bg-amber-600 text-white') : `bg-stone-500/20 hover:bg-stone-500/30 ${activeTheme.textMain}`}`}
-                >
-                    {opt.icon && <Sparkles className="w-3 h-3" />} {opt.l}
-                </button>
-            ))}
-        </div>
-
-        <label className={`text-[10px] ${activeTheme.textMuted} uppercase font-bold mb-1 block`}>Time</label>
-        <div className={`flex gap-1 mb-4 ${activeTheme.highlightBg} p-1 rounded-lg`}>
-            {[0, 300, 600].map(t => (
-                <button
-                    key={t}
-                    onClick={() => changeTimeControl(t)}
-                    className={`flex-1 py-1 text-[10px] rounded transition-all ${initialTime === t ? 'bg-white/20 shadow ring-1 ring-white/30 text-inherit' : `${activeTheme.textMuted} hover:text-inherit`}`}
-                >
-                    {t === 0 ? '∞' : `${t/60}m`}
-                </button>
-            ))}
-        </div>
-        
-        <div className="flex gap-2">
-            <button onClick={undo} disabled={history.length === 0 || aiThinking || gameStatus !== GameStatus.Playing} className={`flex-1 py-1.5 bg-stone-500/20 hover:bg-stone-500/30 ${activeTheme.textMain} rounded flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-xs`}>
-                <Undo2 className="w-3 h-3" /> Undo
-            </button>
-            <button onClick={reset} className={`flex-1 py-1.5 bg-stone-500/20 hover:bg-stone-500/30 ${activeTheme.textMain} rounded flex items-center justify-center gap-2 text-xs`}>
-                <RotateCcw className="w-3 h-3" /> Reset
-            </button>
-        </div>
-    </div>
-  );
-
-  const HistoryCard = ({ className = "" }: { className?: string }) => (
-    <div className={`${activeTheme.panelBg} rounded-xl shadow-lg border ${activeTheme.panelBorder} backdrop-blur-sm flex flex-col overflow-hidden ${className} transition-colors`}>
-            <div className={`p-3 border-b ${activeTheme.panelBorder} ${activeTheme.highlightBg} flex items-center gap-2 ${activeTheme.textMain} font-bold text-xs uppercase tracking-wider`}>
-            <ScrollText className={`w-4 h-4 ${activeTheme.accentText}`} />
-            History
-            </div>
-            <div 
-                ref={historyContainerRef} 
-                className="flex-1 overflow-y-auto p-3 space-y-1 scrollbar-thin scrollbar-thumb-stone-500/30 scrollbar-track-transparent"
-            >
-            {moveList.length === 0 ? (
-                <div className={`h-full flex flex-col items-center justify-center opacity-30 ${activeTheme.textMuted}`}>
-                    <div className="text-2xl font-calligraphy mb-1">观棋不语</div>
-                </div>
-            ) : (
-                moveList.map((move, index) => {
-                    const isRedMove = index % 2 === 0;
-                    return (
-                        <div key={index} className={`flex items-center gap-2 p-1.5 rounded text-xs ${index === moveList.length - 1 ? 'bg-amber-500/10 ring-1 ring-amber-500/30' : `hover:${activeTheme.highlightBg}`}`}>
-                            <span className={`${activeTheme.textMuted} w-4 text-right font-mono text-[10px] transition-colors`}>{index + 1}.</span>
-                            <div className={`flex items-center gap-2 ${isRedMove ? 'text-red-400' : activeTheme.textMain}`}>
-                                <span className="text-sm">{isRedMove ? '🔴' : '⚫'}</span>
-                                <span className="font-serif tracking-wide">{move}</span>
-                            </div>
-                        </div>
-                    );
-                })
-            )}
-            </div>
-    </div>
-  );
-
-  // Settings Modal
-  const SettingsModal = () => {
-      if (!isSettingsOpen) return null;
-      return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-              <div className={`${activeTheme.panelBg} ${activeTheme.panelBorder} border w-full max-w-md rounded-xl shadow-2xl p-6 relative`}>
-                  <button 
-                    onClick={() => setIsSettingsOpen(false)}
-                    className={`absolute top-4 right-4 p-1 rounded-full hover:bg-stone-500/20 ${activeTheme.textMain}`}
-                  >
-                      <X className="w-5 h-5" />
-                  </button>
-                  
-                  <h2 className={`text-xl font-bold mb-6 ${activeTheme.textMain} flex items-center gap-2`}>
-                      <Settings className="w-5 h-5" /> Game Settings
-                  </h2>
-
-                  {/* Volume */}
-                  <div className="mb-6">
-                      <label className={`block text-xs uppercase font-bold ${activeTheme.textMuted} mb-3`}>Audio Volume</label>
-                      <div className="flex items-center gap-3">
-                          <button onClick={() => setVolume(0)} className={activeTheme.textMain}><VolumeX className="w-4 h-4"/></button>
-                          <input 
-                            type="range" 
-                            min="0" 
-                            max="1" 
-                            step="0.05" 
-                            value={volume} 
-                            onChange={(e) => setVolume(parseFloat(e.target.value))}
-                            className="flex-1 h-2 bg-stone-500/30 rounded-lg appearance-none cursor-pointer accent-amber-500"
-                          />
-                          <span className={`text-xs font-mono w-8 text-right ${activeTheme.textMain}`}>{Math.round(volume * 100)}%</span>
-                      </div>
-                  </div>
-
-                  {/* Themes */}
-                  <div className="mb-6">
-                      <label className={`block text-xs uppercase font-bold ${activeTheme.textMuted} mb-3`}>Visual Theme</label>
-                      <div className="grid grid-cols-2 gap-3">
-                          {(Object.keys(THEMES) as ThemeKey[]).map((themeKey) => (
-                              <button
-                                key={themeKey}
-                                onClick={() => setCurrentTheme(themeKey)}
-                                className={`p-3 rounded-lg border text-left flex flex-col gap-1 transition-all ${currentTheme === themeKey ? 'border-amber-500 ring-1 ring-amber-500 bg-amber-500/10' : `border-transparent ${THEMES[themeKey].highlightBg}`}`}
-                              >
-                                  <span className={`font-bold text-sm ${THEMES[themeKey].textMain}`}>{THEMES[themeKey].name}</span>
-                                  <span className="text-[10px] opacity-60">Preview Colors</span>
-                                  <div className="flex gap-1 mt-1">
-                                      <div className={`w-3 h-3 rounded-full ${THEMES[themeKey].bgApp} border border-gray-500`}></div>
-                                      <div className={`w-3 h-3 rounded-full ${THEMES[themeKey].boardBg} border border-gray-500`}></div>
-                                  </div>
-                              </button>
-                          ))}
-                      </div>
-                  </div>
-
-                  {/* AI Difficulty (Minimax) */}
-                  {aiModel === AIModel.Traditional && (
-                    <div className="mb-2">
-                        <label className={`block text-xs uppercase font-bold ${activeTheme.textMuted} mb-3`}>
-                            Minimax Depth (Difficulty)
-                        </label>
-                        <div className="flex items-center gap-2 bg-stone-500/10 p-1 rounded-lg">
-                            {[2, 3, 4].map(d => (
-                                <button 
-                                    key={d}
-                                    onClick={() => setMinimaxDepth(d)}
-                                    className={`flex-1 py-2 text-xs rounded transition-all ${minimaxDepth === d ? 'bg-amber-600 text-white shadow' : `${activeTheme.textMuted} hover:bg-stone-500/10`}`}
-                                >
-                                    {d === 2 ? 'Easy (2)' : d === 3 ? 'Medium (3)' : 'Hard (4)'}
-                                </button>
-                            ))}
-                        </div>
-                        <p className={`text-[10px] mt-2 ${activeTheme.textMuted} italic`}>
-                            Higher depth = stronger play but slower thinking time.
-                        </p>
-                    </div>
-                  )}
-              </div>
+  const AIConsole = () => (
+      <div className={`${THEME.panelBg} rounded-xl p-4 border ${THEME.panelBorder} backdrop-blur-sm w-full h-full flex flex-col min-h-[200px]`}>
+          <h2 className="text-sm font-bold text-stone-300 flex items-center gap-2 mb-3">
+              <BrainCircuit className="w-4 h-4 text-purple-500" /> AI Console
+          </h2>
+          
+          {/* Model Selector */}
+          <div className="grid grid-cols-3 gap-2 mb-4">
+              <button 
+                onClick={() => setAiModel(AIModel.None)}
+                className={`py-2 px-1 text-[10px] md:text-xs rounded border transition-all ${aiModel === AIModel.None ? 'border-amber-600 bg-amber-600/20 text-amber-500' : 'border-stone-700 bg-stone-800 text-stone-500 hover:bg-stone-700'}`}
+              >
+                  PvP Mode
+              </button>
+              <button 
+                onClick={() => setAiModel(AIModel.Traditional)}
+                className={`py-2 px-1 text-[10px] md:text-xs rounded border transition-all ${aiModel === AIModel.Traditional ? 'border-blue-600 bg-blue-600/20 text-blue-400' : 'border-stone-700 bg-stone-800 text-stone-500 hover:bg-stone-700'}`}
+              >
+                  Minimax
+              </button>
+              <button 
+                onClick={() => setAiModel(AIModel.GeminiFlash)}
+                className={`py-2 px-1 text-[10px] md:text-xs rounded border transition-all ${aiModel.includes('gemini') ? 'border-purple-600 bg-purple-600/20 text-purple-400' : 'border-stone-700 bg-stone-800 text-stone-500 hover:bg-stone-700'}`}
+              >
+                  Gemini AI
+              </button>
           </div>
-      )
-  }
 
-  const AnalysisMessage = () => (
-    <div className="w-full max-w-[600px] lg:max-w-[800px] min-h-[50px] mb-2 transition-all">
-        {aiThinking ? (
-            <div className={`${activeTheme.panelBg} rounded-xl p-2 border border-amber-500/30 flex items-center justify-center gap-3 text-amber-500 animate-pulse`}>
-                <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                <span className="text-xs md:text-sm">AI Thinking...</span>
-            </div>
-        ) : aiReasoning ? (
-            <div className={`${activeTheme.panelBg} rounded-xl p-2 md:p-3 border border-purple-500/30 backdrop-blur-sm animate-fade-in`}>
-                <h3 className="text-[10px] md:text-xs font-bold text-purple-500 uppercase mb-1 flex items-center gap-2"><Sparkles className="w-3 h-3"/> Gemini Analysis</h3>
-                <p className={`text-xs md:text-sm ${activeTheme.textMain} italic leading-relaxed`}>"{aiReasoning}"</p>
-            </div>
-        ) : null}
-    </div>
+          {/* Content Area */}
+          <div className="flex-1 bg-stone-900/50 rounded-lg p-3 overflow-y-auto min-h-[100px] border border-stone-800">
+              {aiModel === AIModel.None ? (
+                  <div className="h-full flex items-center justify-center text-stone-600 text-xs italic text-center">
+                      Player vs Player Mode Active.<br/>Select an AI to enable assistance.
+                  </div>
+              ) : (
+                  <>
+                    {aiThinking ? (
+                        <div className="flex items-center gap-3 text-amber-500">
+                            <div className="flex gap-1">
+                                <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                                <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                                <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                            </div>
+                            <span className="text-xs animate-pulse">AI is thinking...</span>
+                        </div>
+                    ) : aiReasoning ? (
+                        <div className="animate-fade-in">
+                            <div className="flex items-center gap-2 text-purple-400 mb-2">
+                                <Sparkles className="w-3 h-3" />
+                                <span className="text-[10px] font-bold uppercase tracking-wider">Analysis</span>
+                            </div>
+                            <p className="text-xs text-stone-300 italic leading-relaxed">
+                                "{aiReasoning}"
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="h-full flex items-center justify-center text-stone-600 text-xs italic">
+                            Waiting for AI turn...
+                        </div>
+                    )}
+                  </>
+              )}
+          </div>
+      </div>
   );
 
-  return (
-    <div className={`min-h-screen font-serif overflow-x-hidden transition-colors duration-500 ${activeTheme.bgApp} ${activeTheme.textMain}`}>
-        
-        {(gameStatus === GameStatus.RedWin || gameStatus === GameStatus.BlackWin) && <Confetti />}
-        
-        <SettingsModal />
-
-        <div className="container mx-auto p-2 md:p-4 lg:p-8 min-h-screen flex flex-col lg:flex-row items-start justify-center gap-4 lg:gap-10">
-
-            {/* Desktop Left Sidebar */}
-            <div className="hidden lg:flex flex-col gap-4 w-[360px] shrink-0 h-[calc(100vh-4rem)] sticky top-8">
-                <ScoreboardCard />
-                <SettingsCard />
-                <div className="flex-1 min-h-0">
-                    <HistoryCard className="h-full" />
+  const HistoryModal = () => {
+    if (!isHistoryOpen) return null;
+    return (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex justify-end animate-fade-in" onClick={() => setIsHistoryOpen(false)}>
+            <div className="w-80 h-full bg-stone-900 border-l border-stone-700 shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
+                <div className="p-4 border-b border-stone-700 flex items-center justify-between bg-stone-800">
+                    <h3 className="font-bold text-stone-200 flex items-center gap-2">
+                        <ScrollText className="w-4 h-4 text-amber-500"/> Game History
+                    </h3>
+                    <button onClick={() => setIsHistoryOpen(false)} className="text-stone-500 hover:text-white"><X className="w-5 h-5"/></button>
+                </div>
+                <div ref={historyContainerRef} className="flex-1 overflow-y-auto p-4 space-y-1 scrollbar-thin">
+                    {moveList.length === 0 ? (
+                        <div className="text-stone-600 text-center py-10 italic">No moves yet</div>
+                    ) : (
+                         moveList.map((move, index) => (
+                            <div key={index} className={`flex items-center gap-3 p-2 rounded text-xs ${index === moveList.length - 1 ? 'bg-amber-900/20 border border-amber-800/50' : 'hover:bg-stone-800'}`}>
+                                <span className="text-stone-500 w-5 text-right font-mono">{index + 1}.</span>
+                                <div className={`flex items-center gap-2 ${index % 2 === 0 ? 'text-red-400' : 'text-stone-300'}`}>
+                                    <span>{index % 2 === 0 ? '🔴' : '⚫'}</span>
+                                    <span>{move}</span>
+                                </div>
+                            </div>
+                        ))
+                    )}
                 </div>
             </div>
+        </div>
+    );
+  };
 
-            {/* Center: Game Board Area */}
-            <div className="flex-1 flex flex-col items-center w-full">
-                
-                {/* Title */}
-                <div className="relative w-full text-center mb-2 md:mb-4">
-                    <h1 className={`text-3xl md:text-5xl font-bold font-calligraphy ${activeTheme.accentText} drop-shadow-md tracking-widest`}>
-                        中国象棋
-                    </h1>
-                    {/* Mobile Settings Button (Absolute positioned relative to title area) */}
-                    <button 
-                        onClick={() => setIsSettingsOpen(true)}
-                        className={`lg:hidden absolute right-0 top-1/2 -translate-y-1/2 p-2 rounded-full ${activeTheme.highlightBg} ${activeTheme.textMuted}`}
-                    >
-                        <Settings className="w-5 h-5" />
-                    </button>
-                </div>
+  const GameView = () => (
+    <div className="min-h-screen flex flex-col p-2 md:p-4">
+        {/* Top Navigation Bar */}
+        <div className="flex items-center justify-between mb-4 px-2">
+            <button 
+                onClick={() => setView('home')} 
+                className="flex items-center gap-2 text-stone-400 hover:text-amber-500 transition-colors"
+            >
+                <ChevronLeft className="w-5 h-5" /> <Home className="w-4 h-4" />
+            </button>
+            <h2 className="text-xl font-calligraphy text-stone-200 tracking-widest">中国象棋</h2>
+            <button 
+                onClick={() => setIsHistoryOpen(true)}
+                className={`p-2 rounded-full transition-colors ${isHistoryOpen ? 'bg-amber-600 text-white' : 'bg-stone-800 text-stone-400 hover:text-white'}`}
+            >
+                <HistoryIcon className="w-5 h-5" />
+            </button>
+        </div>
 
-                <AnalysisMessage />
+        <div className="flex-1 w-full max-w-6xl mx-auto flex flex-col lg:flex-row gap-6 lg:items-start">
+            
+            {/* Desktop: Left Sidebar (Scoreboard + AI) */}
+            {/* Mobile: Not used here, components are dispersed */}
+            <div className="hidden lg:flex w-[350px] flex-col gap-4 flex-shrink-0 sticky top-4 order-1">
+                <ScoreboardAndControls />
+                <AIConsole />
+            </div>
 
-                {/* Mobile: Scoreboard */}
-                <div className="lg:hidden w-full max-w-[600px] mb-4">
-                   <ScoreboardCard />
-                </div>
+            {/* Center: Board Area */}
+            <div className="flex-1 flex flex-col items-center order-2">
+                 
+                 {/* Mobile: Scoreboard Top */}
+                 <div className="lg:hidden w-full max-w-[600px] mb-4">
+                     <ScoreboardAndControls />
+                 </div>
 
-                {/* Board */}
-                <div className="w-full max-w-[600px] lg:max-w-[800px]">
+                 {/* Board */}
+                 <div className="w-full max-w-[600px] lg:max-w-[700px]">
                     <Board 
                         board={board} 
-                        onSquareClick={handleSquareClick}
+                        onSquareClick={handleSquareClickSimple}
                         selectedPos={selectedPos}
                         validMoves={validMoves}
                         lastMove={lastMove}
                         rotateBlack={aiModel === AIModel.None}
-                        // Theme Props
-                        boardBgClass={activeTheme.boardBg}
-                        boardBorderClass={activeTheme.boardBorder}
-                        gridColor={activeTheme.gridColor}
-                        woodTexture={activeTheme.woodTexture}
+                        woodTexture={THEME.woodTexture}
                     />
-                </div>
+                 </div>
 
-                {/* Mobile: Bottom Settings & History */}
-                <div className="lg:hidden w-full max-w-[600px] flex flex-col gap-4 mt-4">
-                    <SettingsCard />
-                    <HistoryCard className="h-[300px]" />
-                </div>
+                 {/* Mobile: AI Console Bottom */}
+                 <div className="lg:hidden w-full max-w-[600px] mt-4">
+                     <AIConsole />
+                 </div>
             </div>
+
         </div>
+
+        <HistoryModal />
+    </div>
+  );
+
+  return (
+    <div className={`min-h-screen font-serif overflow-x-hidden ${THEME.bgApp} ${THEME.textMain}`}>
+        {(gameStatus === GameStatus.RedWin || gameStatus === GameStatus.BlackWin) && <Confetti />}
+        
+        {view === 'home' ? <HomeView /> : <GameView />}
     </div>
   );
 }
