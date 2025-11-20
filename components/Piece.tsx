@@ -40,8 +40,8 @@ export const PieceComponent: React.FC<PieceProps> = memo(({ piece, isSelected, o
       }}
       transition={{ 
         layout: { type: "spring", stiffness: 300, damping: 30 }, // Smooth movement
-        boxShadow: { duration: 0.2 },
-        scale: { duration: 0.2 }
+        boxShadow: { duration: 0.1 }, // Faster shadow transition for instant feedback
+        scale: { duration: 0.1 } // Faster scale transition
       }}
       onClick={handleClick}
       className={`

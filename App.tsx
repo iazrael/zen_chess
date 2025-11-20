@@ -8,7 +8,7 @@ import { getLegalMoves, applyMove } from './utils/chessRules';
 import { getBestMoveMinimax } from './utils/minimax';
 import { getGeminiMove } from './services/geminiService';
 import { getOpenAIMove } from './services/openaiService';
-import { playMoveSound, playCaptureSound, playWinSound, setGlobalVolume } from './utils/sound';
+import { playMoveSound, playCaptureSound, playWinSound, playSelectSound, setGlobalVolume } from './utils/sound';
 import { Undo2, RotateCcw, BrainCircuit, Sparkles, ScrollText, Settings, Volume2, VolumeX, X, Users, Bot, ChevronLeft, Home, History as HistoryIcon, Zap } from 'lucide-react';
 
 // --- Theme Definitions (Simplified for Zen focus) ---
@@ -214,6 +214,7 @@ function App() {
       if (piece && piece.color === turn) {
           // Only trigger update if actually changing selection to further reduce renders
           if (selectedPos?.x !== pos.x || selectedPos?.y !== pos.y) {
+            playSelectSound(); // Play select sound
             setSelectedPos(pos);
             setValidMoves(getLegalMoves(board, pos));
           }

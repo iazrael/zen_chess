@@ -72,6 +72,30 @@ export const playCaptureSound = () => {
     osc.stop(t + 0.2);
 };
 
+export const playSelectSound = () => {
+    if (globalVolume === 0) return;
+    const ctx = getCtx();
+    if (!ctx) return;
+
+    const t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    // Very short, high pitched "tick" or "tap"
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(800, t);
+    osc.frequency.exponentialRampToValueAtTime(1200, t + 0.05);
+
+    gain.gain.setValueAtTime(0.05 * globalVolume, t);
+    gain.gain.exponentialRampToValueAtTime(0.001 * globalVolume, t + 0.05);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start();
+    osc.stop(t + 0.06);
+};
+
 export const playWinSound = () => {
     if (globalVolume === 0) return;
     const ctx = getCtx();
