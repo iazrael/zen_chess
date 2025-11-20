@@ -1,4 +1,4 @@
-import { PieceType, Color, Piece, BoardState } from './types';
+import { PieceType, Color, Piece, BoardState } from './types.js';
 
 export const BOARD_ROWS = 10;
 export const BOARD_COLS = 9;

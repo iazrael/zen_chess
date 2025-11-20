@@ -1,6 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { parseMoveString } from "../utils/chessRules";
-import { getGameContext, constructPrompt } from "./utils";
+import { parseMoveString } from "./chessRules.js";
+import { getGameContext, constructPrompt } from "./utils.js";
 
 const apiKey = process.env.GEMINI_API_KEY || '';
 const ai = new GoogleGenAI({ apiKey });

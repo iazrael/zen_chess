@@ -1,4 +1,4 @@
-import { BoardState, Color, Position } from "../types";
+import { BoardState, Color, Position } from "../server/common/types";
 
 export const getOpenAIMove = async (board: BoardState, turn: Color): Promise<{ from: Position; to: Position; reason: string } | null> => {
   try {

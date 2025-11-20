@@ -1,5 +1,5 @@
-import { BoardState, Color, Position } from "../types";
-import { boardToFEN, fenToMoveString, getLegalMoves } from "../utils/chessRules";
+import { BoardState, Color, Position } from "./common/types.js";
+import { boardToFEN, fenToMoveString, getLegalMoves } from "./chessRules.js";
 
 export interface MoveRequest {
     board: BoardState;

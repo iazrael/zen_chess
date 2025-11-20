@@ -1,5 +1,5 @@
-import { parseMoveString } from "../utils/chessRules";
-import { getGameContext, constructPrompt } from "./utils";
+import { parseMoveString } from "./chessRules.js";
+import { getGameContext, constructPrompt } from "./utils.js";
 
 const apiKey = process.env.OPENAI_API_KEY || '';
 const apiUrl = process.env.OPENAI_API_URL || 'https://api.openai.com/v1/chat/completions';
@@ -66,7 +66,7 @@ export default async function handler(req: any, res: any) {
             return;
         }
 
-        const data = await response.json();
+        const data: any = await response.json();
         const content = data.choices?.[0]?.message?.content;
 
         if (!content) {

@@ -1,0 +1,33 @@
+{
+    "compilerOptions": {
+        // 目标环境是 Node 18+，与 Vercel Functions 的 Node.js 运行时对齐
+        "target": "ES2022",
+        "module": "NodeNext",
+        "moduleResolution": "NodeNext",
+        "lib": [
+            "ES2022"
+        ],
+        "types": [
+            "node"
+        ],
+        // 允许在 TS 源码中写 .js 扩展名的导入
+        // 比如：import { parseMoveString } from "./shared/chessRules.js";
+        "allowImportingTsExtensions": false,
+        // ESM 项目里通常需要
+        "esModuleInterop": true,
+        "forceConsistentCasingInFileNames": true,
+        "strict": false,
+        "skipLibCheck": true,
+        // 对 API 目录，我们是希望可以单独编译输出 JS 的（本地调试用）
+        // 但在 Vercel 上可以依然让其用自身 TS 支持。
+        "outDir": "../api",
+        "rootDir": "./",
+        // 避免影响前端的 bundler 解析规则
+        "resolveJsonModule": true
+    },
+    "include": [
+        "./**/*.ts",
+        "./**/*.tsx",
+        "./**/*.js"
+    ]
+}

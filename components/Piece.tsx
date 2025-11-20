@@ -1,7 +1,7 @@
 import React, { memo } from 'react';
 import { motion } from 'framer-motion';
-import { Piece as PieceType, Color, Position } from '../types';
-import { PIECE_CHARS } from '../constants';
+import { Piece as PieceType, Color, Position } from '../server/common/types';
+import { PIECE_CHARS } from '../server/common/constants';
 
 interface PieceProps {
   piece: PieceType;
@@ -15,7 +15,7 @@ interface PieceProps {
 
 export const PieceComponent: React.FC<PieceProps> = memo(({ piece, isSelected, onSquareClick, position, isLastMoveSource, isLastMoveDest, rotate }) => {
   const isRed = piece.color === Color.Red;
-  
+
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     onSquareClick(position);
@@ -32,13 +32,13 @@ export const PieceComponent: React.FC<PieceProps> = memo(({ piece, isSelected, o
       style={{
         boxShadow: defaultShadow // Base shadow always applied via style
       }}
-      animate={{ 
+      animate={{
         // Only animate the shadow CHANGE when selected, otherwise keep it stable
         boxShadow: isSelected ? selectedShadow : defaultShadow,
         zIndex: isSelected ? 30 : 20,
         scale: isSelected ? 1.1 : 1 // Subtle scale for selection feedback
       }}
-      transition={{ 
+      transition={{
         layout: { type: "spring", stiffness: 300, damping: 30 }, // Smooth movement
         boxShadow: { duration: 0.1 }, // Faster shadow transition for instant feedback
         scale: { duration: 0.1 } // Faster scale transition
@@ -54,17 +54,17 @@ export const PieceComponent: React.FC<PieceProps> = memo(({ piece, isSelected, o
     >
       {/* Inner Ring for aesthetics */}
       <div className={`absolute w-[85%] h-[85%] rounded-full border border-dashed ${isRed ? 'border-red-300' : 'border-stone-400'} opacity-50`}></div>
-      
+
       {/* Character */}
-      <span 
+      <span
         className={`text-2xl md:text-3xl lg:text-4xl font-calligraphy font-bold drop-shadow-sm pb-1 transition-transform duration-500 ${rotate ? 'rotate-180' : ''}`}
-        style={{ 
-          textShadow: '0px 1px 1px rgba(255,255,255,0.8)' 
+        style={{
+          textShadow: '0px 1px 1px rgba(255,255,255,0.8)'
         }}
       >
         {PIECE_CHARS[piece.color][piece.type]}
       </span>
-      
+
       {/* Wood grain overlay effect */}
       <div className="absolute inset-0 rounded-full bg-[url('https://www.transparenttextures.com/patterns/wood-pattern.png')] opacity-20 pointer-events-none"></div>
     </motion.div>

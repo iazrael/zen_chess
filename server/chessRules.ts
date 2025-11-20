@@ -1,5 +1,5 @@
-import { BoardState, Position, Piece, PieceType, Color, Move } from '../types';
-import { BOARD_ROWS, BOARD_COLS } from '../constants';
+import { BoardState, Position, Piece, PieceType, Color, Move } from './common/types.js';
+import { BOARD_ROWS, BOARD_COLS } from './common/constants.js';
 
 // Helper to check bounds
 const isValidPos = (x: number, y: number) => x >= 0 && x < BOARD_COLS && y >= 0 && y < BOARD_ROWS;
@@ -71,7 +71,7 @@ export const getValidMovesForPiece = (board: BoardState, pos: Position): Positio
         // Check river boundary
         if (color === Color.Red && ty < 5) return;
         if (color === Color.Black && ty > 4) return;
-        
+
         // Check eye (midpoint)
         const eyeX = x + dx / 2;
         const eyeY = y + dy / 2;
@@ -219,12 +219,12 @@ export const boardToFEN = (board: BoardState, turn: Color): string => {
           empty = 0;
         }
         const char = p.type === PieceType.Horse ? 'n' : // FEN standard for Horse is 'n'
-                     p.type === PieceType.Elephant ? 'b' : // Elephant usually 'b'
-                     p.type === PieceType.General ? 'k' :
-                     p.type === PieceType.Advisor ? 'a' :
-                     p.type === PieceType.Chariot ? 'r' :
-                     p.type === PieceType.Cannon ? 'c' :
-                     p.type === PieceType.Soldier ? 'p' : '?';
+          p.type === PieceType.Elephant ? 'b' : // Elephant usually 'b'
+            p.type === PieceType.General ? 'k' :
+              p.type === PieceType.Advisor ? 'a' :
+                p.type === PieceType.Chariot ? 'r' :
+                  p.type === PieceType.Cannon ? 'c' :
+                    p.type === PieceType.Soldier ? 'p' : '?';
         fen += p.color === Color.Red ? char.toUpperCase() : char.toLowerCase();
       }
     }
