@@ -42,22 +42,27 @@ export default async function handler(req: any, res: any) {
 
         const prompt = constructPrompt(fen, turn, legalMovesStr);
 
+        const body = JSON.stringify({
+            model: model,
+            messages: [
+                { role: "system", content: "You are a Chinese Chess (Xiangqi) Grandmaster engine. Return JSON only." },
+                { role: "user", content: prompt }
+            ],
+            temperature: 0.3,
+            response_format: { type: "json_object" }
+        });
+
         const response = await fetch(apiUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${apiKey}`
             },
-            body: JSON.stringify({
-                model: model,
-                messages: [
-                    { role: "system", content: "You are a Chinese Chess (Xiangqi) Grandmaster engine. Return JSON only." },
-                    { role: "user", content: prompt }
-                ],
-                temperature: 0.3,
-                response_format: { type: "json_object" }
-            })
+            body: body
         });
+
+        // 打印一下请求体
+        console.log("OpenAI API Request:", body);
 
         if (!response.ok) {
             const err = await response.text();

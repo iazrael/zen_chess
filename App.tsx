@@ -40,6 +40,7 @@ function App() {
     const [moveList, setMoveList] = useState<string[]>([]);
     const [lastMove, setLastMove] = useState<Move | null>(null);
     const [gameStatus, setGameStatus] = useState<GameStatus>(GameStatus.Playing);
+    const [isAnimating, setIsAnimating] = useState(false);
 
     // Timer State (Only initial settings, running time is inside GameTimer)
     const [initialTime, setInitialTime] = useState<number>(600);
@@ -67,7 +68,8 @@ function App() {
         validMoves,
         aiModel,
         aiThinking,
-        gameStatus
+        gameStatus,
+        isAnimating
     });
 
     // Sync ref with state on every render
@@ -79,7 +81,8 @@ function App() {
             validMoves,
             aiModel,
             aiThinking,
-            gameStatus
+            gameStatus,
+            isAnimating
         };
     });
 
@@ -139,6 +142,7 @@ function App() {
     };
 
     const executeMoveStable = useCallback((from: Position, to: Position) => {
+        setIsAnimating(true);
         setBoard(currentBoard => {
             const movedPiece = currentBoard[from.y][from.x];
             const targetPiece = currentBoard[to.y][to.x];
@@ -193,13 +197,18 @@ function App() {
 
             return applyMove(currentBoard, from, to);
         });
+        
+        // 重置动画状态，给动画一些时间完成
+        setTimeout(() => {
+            setIsAnimating(false);
+        }, 300); // 300ms 应该足够动画完成
     }, []);
 
     // Fully stable handler that doesn't change reference when validMoves changes
     const handleSquareClickStable = useCallback(async (pos: Position) => {
-        const { gameStatus, aiThinking, aiModel, turn, board, selectedPos, validMoves } = gameStateRef.current;
+        const { gameStatus, aiThinking, aiModel, turn, board, selectedPos, validMoves, isAnimating } = gameStateRef.current;
 
-        if (gameStatus !== GameStatus.Playing || aiThinking) return;
+        if (gameStatus !== GameStatus.Playing || aiThinking || isAnimating) return;
         if (aiModel !== AIModel.None && turn === Color.Black) return;
 
         const piece = board[pos.y][pos.x];
@@ -247,7 +256,7 @@ function App() {
     // AI Logic
     useEffect(() => {
         if (gameStatus !== GameStatus.Playing || view !== 'game') return;
-        if (turn === Color.Black && aiModel !== AIModel.None) {
+        if (turn === Color.Black && aiModel !== AIModel.None && !isAnimating) {
             const runAI = async () => {
                 setAiThinking(true);
                 setAiReasoning(null);
@@ -278,7 +287,7 @@ function App() {
             };
             runAI();
         }
-    }, [turn, aiModel, gameStatus, view, board, minimaxDepth, executeMoveStable]);
+    }, [turn, aiModel, gameStatus, view, board, minimaxDepth, executeMoveStable, isAnimating]);
 
     const undo = () => {
         if (history.length === 0 || aiThinking) return;
