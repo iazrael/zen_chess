@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { BoardState, Position, Color, Move, Piece } from '../server/common/types';
+import { BoardState, Position, Color, Move, Piece } from '../api/common/types';
 import { PieceComponent } from './Piece';
 
 interface BoardProps {

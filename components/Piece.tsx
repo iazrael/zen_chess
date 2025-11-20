@@ -1,7 +1,7 @@
 import React, { memo } from 'react';
 import { motion } from 'framer-motion';
-import { Piece as PieceType, Color, Position } from '../server/common/types';
-import { PIECE_CHARS } from '../server/common/constants';
+import { Piece as PieceType, Color, Position } from '../api/common/types';
+import { PIECE_CHARS } from '../api/common/constants';
 
 interface PieceProps {
   piece: PieceType;

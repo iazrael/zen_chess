@@ -1,4 +1,4 @@
-import { BoardState, Color, Position } from "../server/common/types";
+import { BoardState, Color, Position } from "../api/common/types";
 
 export const getGeminiMove = async (board: BoardState, turn: Color, modelName: string): Promise<{ from: Position; to: Position; reason: string } | null> => {
   try {
