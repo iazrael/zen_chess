@@ -441,12 +441,14 @@ function App() {
                 >
                     Minimax
                 </button>
+                {/* Gemini Hidden
                 <button
                     onClick={() => setAiModel(AIModel.GeminiFlash)}
                     className={`py-2 px-1 text-[10px] md:text-xs rounded border transition-all ${aiModel.includes('gemini') ? 'border-purple-600 bg-purple-600/20 text-purple-400' : 'border-stone-700 bg-stone-800 text-stone-500 hover:bg-stone-700'}`}
                 >
                     Gemini
                 </button>
+                */}
                 <button
                     onClick={() => setAiModel(AIModel.OpenAI)}
                     className={`py-2 px-1 text-[10px] md:text-xs rounded border transition-all ${aiModel === AIModel.OpenAI ? 'border-green-600 bg-green-600/20 text-green-400' : 'border-stone-700 bg-stone-800 text-stone-500 hover:bg-stone-700'}`}
