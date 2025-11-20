@@ -74,8 +74,8 @@ export const constructPrompt = (fen: string, turn: Color, legalMovesStr: string)
             } else {
                 // Map FEN characters to visual representation
                 const visualChar = {
-                    'r': '車', 'n': '馬', 'b': '象', 'a': '士', 'k': '将', 'c': '炮', 'p': '卒',
-                    'R': '車', 'N': '馬', 'B': '相', 'A': '仕', 'K': '帅', 'C': '炮', 'P': '兵'
+                    'r': '俥', 'n': '傌', 'b': '象', 'a': '士', 'k': '将', 'c': '砲', 'p': '卒',
+                    'R': '車', 'N': '馬', 'B': '相', 'A': '仕', 'K': '帥', 'C': '炮', 'P': '兵'
                 }[char] || char;
                 rowStr += visualChar;
                 x++;

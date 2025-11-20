@@ -15,11 +15,11 @@ const createPiece = (type: PieceType, color: Color, x: number, y: number): Piece
 
 export const PIECE_CHARS: Record<string, Record<string, string>> = {
   [Color.Red]: {
-    [PieceType.General]: '帅',
+    [PieceType.General]: '帥',
     [PieceType.Advisor]: '仕',
     [PieceType.Elephant]: '相',
-    [PieceType.Horse]: '马',
-    [PieceType.Chariot]: '车',
+    [PieceType.Horse]: '馬',
+    [PieceType.Chariot]: '車',
     [PieceType.Cannon]: '炮',
     [PieceType.Soldier]: '兵',
   },
@@ -27,9 +27,9 @@ export const PIECE_CHARS: Record<string, Record<string, string>> = {
     [PieceType.General]: '将',
     [PieceType.Advisor]: '士',
     [PieceType.Elephant]: '象',
-    [PieceType.Horse]: '马',
-    [PieceType.Chariot]: '车',
-    [PieceType.Cannon]: '炮',
+    [PieceType.Horse]: '傌',
+    [PieceType.Chariot]: '俥',
+    [PieceType.Cannon]: '砲',
     [PieceType.Soldier]: '卒',
   }
 };

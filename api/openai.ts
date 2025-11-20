@@ -79,6 +79,8 @@ export default async function handler(req: any, res: any) {
             return;
         }
 
+        console.log("OpenAI API Response:", content);
+
         let result;
         try {
             result = JSON.parse(content);
