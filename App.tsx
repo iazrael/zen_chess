@@ -457,6 +457,27 @@ function App() {
                 </button>
             </div>
 
+            {/* Minimax Difficulty Selector */}
+            {aiModel === AIModel.Traditional && (
+                <div className="mb-4 animate-fade-in">
+                    <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs text-stone-400">Difficulty (Depth)</span>
+                        <span className="text-xs text-blue-400 font-bold">{minimaxDepth}</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1">
+                        {[2, 3, 4].map(depth => (
+                            <button
+                                key={depth}
+                                onClick={() => setMinimaxDepth(depth)}
+                                className={`py-1 px-1 text-[10px] rounded border transition-all ${minimaxDepth === depth ? 'border-blue-500 bg-blue-500/20 text-blue-300' : 'border-stone-700 bg-stone-800/50 text-stone-500 hover:bg-stone-700'}`}
+                            >
+                                {depth === 2 ? 'Easy' : depth === 3 ? 'Med' : 'Hard'}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* Content Area */}
             <div className="flex-1 bg-stone-900/50 rounded-lg p-3 overflow-y-auto min-h-[100px] border border-stone-800">
                 {aiModel === AIModel.None ? (
