@@ -24,22 +24,23 @@ export const PieceComponent: React.FC<PieceProps> = memo(({ piece, isSelected, o
   return (
     <motion.div
       layoutId={piece.id}
-      initial={{ opacity: 0, scale: 0.8 }}
+      // Remove initial scale/opacity to prevent flashing on re-renders
       animate={{ 
-        opacity: 1, 
-        scale: 1,
         boxShadow: isSelected 
           ? '0 0 20px rgba(255, 215, 0, 0.9), inset 0 0 10px rgba(0,0,0,0.1)' 
-          : '2px 4px 8px rgba(0,0,0,0.4), inset 0 0 10px rgba(255,255,255,0.6)'
+          : '2px 4px 8px rgba(0,0,0,0.4), inset 0 0 10px rgba(255,255,255,0.6)',
+        zIndex: isSelected ? 30 : 20
       }}
-      transition={{ type: "spring", stiffness: 300, damping: 25 }}
+      transition={{ 
+        layout: { type: "spring", stiffness: 300, damping: 30 }, // Smooth movement
+        boxShadow: { duration: 0.2 }
+      }}
       onClick={handleClick}
       className={`
         relative w-[90%] h-[90%] rounded-full flex items-center justify-center cursor-pointer select-none
         ${isRed ? 'border-red-700 text-red-700' : 'border-stone-800 text-stone-900'}
         border-[3px]
         bg-gradient-to-br from-amber-100 to-amber-200
-        z-20
         ${(isLastMoveSource || isLastMoveDest) ? 'ring-2 ring-blue-400 ring-offset-2 ring-offset-transparent' : ''}
       `}
     >

@@ -58,6 +58,31 @@ function App() {
 
   const historyContainerRef = useRef<HTMLDivElement>(null);
 
+  // State Ref for Stable Event Handlers
+  // This allows us to access the latest state in callbacks without updating the callback reference itself
+  const gameStateRef = useRef({
+      board,
+      turn,
+      selectedPos,
+      validMoves,
+      aiModel,
+      aiThinking,
+      gameStatus
+  });
+
+  // Sync ref with state on every render
+  useEffect(() => {
+      gameStateRef.current = {
+          board,
+          turn,
+          selectedPos,
+          validMoves,
+          aiModel,
+          aiThinking,
+          gameStatus
+      };
+  });
+
   // Apply Volume
   useEffect(() => {
       setGlobalVolume(volume);
@@ -170,26 +195,37 @@ function App() {
     });
   }, []);
 
-  const handleSquareClickSimple = useCallback(async (pos: Position) => {
+  // Fully stable handler that doesn't change reference when validMoves changes
+  const handleSquareClickStable = useCallback(async (pos: Position) => {
+      const { gameStatus, aiThinking, aiModel, turn, board, selectedPos, validMoves } = gameStateRef.current;
+
       if (gameStatus !== GameStatus.Playing || aiThinking) return;
       if (aiModel !== AIModel.None && turn === Color.Black) return;
 
       const piece = board[pos.y][pos.x];
 
+      // Move Logic: Use data from ref
       if (selectedPos && validMoves.some(m => m.x === pos.x && m.y === pos.y)) {
           executeMoveStable(selectedPos, pos);
           return;
       }
 
+      // Select Logic
       if (piece && piece.color === turn) {
-          setSelectedPos(pos);
-          setValidMoves(getLegalMoves(board, pos));
+          // Only trigger update if actually changing selection to further reduce renders
+          if (selectedPos?.x !== pos.x || selectedPos?.y !== pos.y) {
+            setSelectedPos(pos);
+            setValidMoves(getLegalMoves(board, pos));
+          }
           return;
       }
 
-      setSelectedPos(null);
-      setValidMoves([]);
-  }, [gameStatus, aiThinking, aiModel, turn, board, selectedPos, validMoves, executeMoveStable]);
+      // Deselect Logic
+      if (selectedPos) {
+          setSelectedPos(null);
+          setValidMoves([]);
+      }
+  }, [executeMoveStable]); // Only depends on executeMoveStable which is also stable
 
 
   // AI Logic
@@ -242,10 +278,6 @@ function App() {
     setMoveList(prev => prev.slice(0, -steps));
     
     setGameStatus(GameStatus.Playing);
-    // Note: We do not restore exact time for simplicity in this refactor, 
-    // as timers are now internal components. 
-    // To fix this strictly, GameTimer would need exposed ref methods or lifted state again.
-    // For now, time keeps flowing or just doesn't reset on undo, which is acceptable for casual play.
   };
 
   const changeTimeControl = (seconds: number) => {
@@ -515,7 +547,7 @@ function App() {
                  <div className="w-full max-w-[600px] lg:max-w-[700px]">
                     <Board 
                         board={board} 
-                        onSquareClick={handleSquareClickSimple}
+                        onSquareClick={handleSquareClickStable}
                         selectedPos={selectedPos}
                         validMoves={validMoves}
                         lastMove={lastMove}
