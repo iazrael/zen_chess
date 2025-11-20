@@ -48,21 +48,52 @@ export const getGameContext = (board: BoardState, turn: Color) => {
     return { fen, allLegalMoves, legalMovesStr };
 };
 
+export const systemPrompt = `You are a Chinese Chess (Xiangqi) Grandmaster engine with deep strategic understanding. Return ONLY valid JSON.`;
+
 export const constructPrompt = (fen: string, turn: Color, legalMovesStr: string) => {
     return `
-      You are a Chinese Chess (Xiangqi) Grandmaster engine.
+      You are a Chinese Chess (Xiangqi) Grandmaster engine with deep strategic understanding.
       
-      Current Board FEN: ${fen}
+      CURRENT BOARD STATE (FEN): ${fen}
       
-      Color to move: ${turn === Color.Red ? "RED (Uppercase in FEN)" : "BLACK (Lowercase in FEN)"}.
+      PLAYER TO MOVE: ${turn === Color.Red ? "RED" : "BLACK"}
       
-      Valid Legal Moves: [${legalMovesStr}]
+      LEGAL MOVES AVAILABLE: [${legalMovesStr}]
       
-      Analyze the position and select the absolute best move to win.
-      You MUST select one move from the provided Valid Legal Moves list.
+      BOARD COORDINATE SYSTEM:
+      - Columns (x): 0 to 8 from left to right
+      - Rows (y): 0 to 9 from top to bottom
+      - Move format: "(from_x,from_y)->(to_x,to_y)"
       
-      Return a JSON object with:
-      - "selectedMove": The exact string from the valid moves list.
-      - "reasoning": A short explanation of why this move is best (max 2 sentences, in Chinese).
+      STRATEGIC INSTRUCTIONS:
+      1. Analyze the position thoroughly considering:
+         - Material balance
+         - Piece activity and coordination
+         - King safety (avoid checks)
+         - Tactical opportunities (captures, forks, pins)
+         - Long-term positional advantages
+      2. Prioritize moves that:
+         - Protect your own General
+         - Attack the opponent's General when possible
+         - Improve piece positioning
+         - Control key central squares
+         - Create threats for the next move
+      3. Avoid moves that:
+         - Leave your General exposed to checks
+         - Allow easy captures of your pieces
+         - Result in immediate material loss
+         - Violate fundamental tactical principles
+      
+      CRITICAL RULES:
+      - SELECT ONLY ONE MOVE FROM THE PROVIDED LEGAL MOVES LIST
+      - YOUR MOVE MUST BE IN EXACTLY THE SAME FORMAT AS IN THE LIST
+      - NEVER INVENT NEW MOVE NOTATIONS
+      - DO NOT RETURN ANYTHING OTHER THAN THE SPECIFIED JSON RESPONSE
+      
+      OUTPUT FORMAT (JSON):
+      {
+        "selectedMove": "EXACT move string from the legal moves list",
+        "reasoning": "Concise analysis explaining why this move is strategically optimal (in Chinese, max 2 sentences)"
+      }
     `;
 };

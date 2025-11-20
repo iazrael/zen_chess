@@ -1,5 +1,5 @@
 import { parseMoveString } from "./chessRules.js";
-import { getGameContext, constructPrompt } from "./utils.js";
+import { getGameContext, constructPrompt, systemPrompt } from "./utils.js";
 const apiKey = process.env.OPENAI_API_KEY || '';
 const apiUrl = process.env.OPENAI_API_URL || 'https://api.openai.com/v1/chat/completions';
 const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
@@ -32,7 +32,7 @@ export default async function handler(req, res) {
         const body = JSON.stringify({
             model: model,
             messages: [
-                { role: "system", content: "You are a Chinese Chess (Xiangqi) Grandmaster engine. Return JSON only." },
+                { role: "system", content: systemPrompt },
                 { role: "user", content: prompt }
             ],
             temperature: 0.3,
