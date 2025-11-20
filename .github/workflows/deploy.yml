@@ -39,7 +39,7 @@ jobs:
         run: npm run build
         env:
           # 从 GitHub Secrets 获取 API Key
-          API_KEY: ${{ secrets.API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

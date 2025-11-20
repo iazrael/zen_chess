@@ -2,7 +2,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { parseMoveString } from "../utils/chessRules";
 import { getGameContext, constructPrompt } from "./utils";
 
-const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || '';
+const apiKey = process.env.GEMINI_API_KEY || '';
 const ai = new GoogleGenAI({ apiKey });
 
 export default async function handler(req: any, res: any) {

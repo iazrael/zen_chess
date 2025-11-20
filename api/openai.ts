@@ -2,7 +2,7 @@ import { parseMoveString } from "../utils/chessRules";
 import { getGameContext, constructPrompt } from "./utils";
 
 const apiKey = process.env.OPENAI_API_KEY || '';
-const baseUrl = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
+const apiUrl = process.env.OPENAI_API_URL || 'https://api.openai.com/v1/chat/completions';
 const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 
 export default async function handler(req: any, res: any) {
@@ -42,7 +42,7 @@ export default async function handler(req: any, res: any) {
 
         const prompt = constructPrompt(fen, turn, legalMovesStr);
 
-        const response = await fetch(`${baseUrl}/chat/completions`, {
+        const response = await fetch(apiUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

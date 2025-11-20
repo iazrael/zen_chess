@@ -14,9 +14,9 @@ export default defineConfig(({ mode }) => {
     base: './',
     define: {
       // 允许在构建时注入环境变量
-      'process.env.API_KEY': JSON.stringify(process.env.API_KEY),
+      'process.env.GEMINI_API_KEY': JSON.stringify(process.env.GEMINI_API_KEY),
       'process.env.OPENAI_API_KEY': JSON.stringify(process.env.OPENAI_API_KEY),
-      'process.env.OPENAI_BASE_URL': JSON.stringify(process.env.OPENAI_BASE_URL),
+      'process.env.OPENAI_API_URL': JSON.stringify(process.env.OPENAI_API_URL),
       'process.env.OPENAI_MODEL': JSON.stringify(process.env.OPENAI_MODEL)
     },
     resolve: {
