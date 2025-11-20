@@ -5,7 +5,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "node dist/index.js",
+    "start": "tsc && node dist/server/index.js",
     "dev": "ts-node --esm index.ts",
     "build": "tsc"
   },

@@ -7,7 +7,7 @@ import path from 'path';
 dotenv.config();
 
 // Import the Vercel function handler
-import openaiHandler from '../api/openai.ts';
+import openaiHandler from '../api/openai.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;

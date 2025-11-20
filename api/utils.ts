@@ -114,6 +114,6 @@ IMPORTANT INSTRUCTIONS:
 OUTPUT FORMAT (JSON):
 {
   "selectedMove": "EXACT move string from the legal moves list",
-  "reasoning": "Concise analysis in Chinese (max 2 sentences)"
+  "reasoning": "Concise analysis in Chinese (max 3 sentences)"
 }`;
 };
