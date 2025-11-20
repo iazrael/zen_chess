@@ -21,19 +21,27 @@ export const PieceComponent: React.FC<PieceProps> = memo(({ piece, isSelected, o
     onSquareClick(position);
   };
 
+  // Define stable shadows
+  const defaultShadow = '2px 4px 8px rgba(0,0,0,0.4), inset 0 0 10px rgba(255,255,255,0.6)';
+  const selectedShadow = '0 0 20px rgba(255, 215, 0, 0.9), inset 0 0 10px rgba(0,0,0,0.1)';
+
   return (
     <motion.div
       layoutId={piece.id}
-      // Remove initial scale/opacity to prevent flashing on re-renders
+      // Use style for static properties that shouldn't animate drastically on mount
+      style={{
+        boxShadow: defaultShadow // Base shadow always applied via style
+      }}
       animate={{ 
-        boxShadow: isSelected 
-          ? '0 0 20px rgba(255, 215, 0, 0.9), inset 0 0 10px rgba(0,0,0,0.1)' 
-          : '2px 4px 8px rgba(0,0,0,0.4), inset 0 0 10px rgba(255,255,255,0.6)',
-        zIndex: isSelected ? 30 : 20
+        // Only animate the shadow CHANGE when selected, otherwise keep it stable
+        boxShadow: isSelected ? selectedShadow : defaultShadow,
+        zIndex: isSelected ? 30 : 20,
+        scale: isSelected ? 1.1 : 1 // Subtle scale for selection feedback
       }}
       transition={{ 
         layout: { type: "spring", stiffness: 300, damping: 30 }, // Smooth movement
-        boxShadow: { duration: 0.2 }
+        boxShadow: { duration: 0.2 },
+        scale: { duration: 0.2 }
       }}
       onClick={handleClick}
       className={`
