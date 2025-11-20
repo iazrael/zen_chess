@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { BoardState, Position, Color, Move } from '../types';
+import { BoardState, Position, Color, Move, Piece } from '../types';
 import { PieceComponent } from './Piece';
 
 interface BoardProps {
@@ -15,6 +15,53 @@ interface BoardProps {
   gridColor?: string;
   woodTexture?: boolean;
 }
+
+interface BoardCellProps {
+    x: number;
+    y: number;
+    piece: Piece | null;
+    isSelected: boolean;
+    isValidMove: boolean;
+    isLastSource: boolean;
+    isLastDest: boolean;
+    onSquareClick: (pos: Position) => void;
+    rotateBlack?: boolean;
+}
+
+// Memoized cell component to prevent unnecessary re-renders
+const BoardCell = memo(({ x, y, piece, isSelected, isValidMove, isLastSource, isLastDest, onSquareClick, rotateBlack }: BoardCellProps) => {
+    return (
+        <div 
+            className="relative flex items-center justify-center"
+            onClick={() => onSquareClick({ x, y })}
+        >
+            {/* Move Indicator Dot */}
+            {isValidMove && !piece && (
+                <div className="absolute w-[20%] h-[20%] bg-green-600/50 rounded-full animate-pulse pointer-events-none shadow-[0_0_5px_rgba(22,163,74,0.5)]"></div>
+            )}
+            
+            {/* Capture Indicator Ring */}
+            {isValidMove && piece && (
+                <div className="absolute w-[90%] h-[90%] border-2 md:border-4 border-red-500/60 rounded-full animate-pulse pointer-events-none"></div>
+            )}
+
+            {/* The Piece */}
+            {piece && (
+                <PieceComponent 
+                    piece={piece} 
+                    isSelected={isSelected} 
+                    onSquareClick={onSquareClick}
+                    position={{x, y}}
+                    isLastMoveSource={isLastSource}
+                    isLastMoveDest={isLastDest}
+                    rotate={rotateBlack && piece.color === Color.Black}
+                />
+            )}
+        </div>
+    );
+});
+BoardCell.displayName = 'BoardCell';
+
 
 // Use memo to prevent re-renders when parent state (like timer) changes but board props do not
 export const Board = memo(({ 
@@ -112,33 +159,18 @@ export const Board = memo(({
                     const isLastDest = lastMove?.to.x === x && lastMove?.to.y === y;
 
                     return (
-                        <div 
-                            key={`${x}-${y}`} 
-                            className="relative flex items-center justify-center"
-                            onClick={() => onSquareClick({ x, y })}
-                        >
-                            {/* Move Indicator Dot */}
-                            {isValidMove && !piece && (
-                                <div className="absolute w-[20%] h-[20%] bg-green-600/50 rounded-full animate-pulse pointer-events-none shadow-[0_0_5px_rgba(22,163,74,0.5)]"></div>
-                            )}
-                            
-                            {/* Capture Indicator Ring */}
-                            {isValidMove && piece && (
-                                <div className="absolute w-[90%] h-[90%] border-2 md:border-4 border-red-500/60 rounded-full animate-pulse pointer-events-none"></div>
-                            )}
-
-                            {/* The Piece */}
-                            {piece && (
-                                <PieceComponent 
-                                    piece={piece} 
-                                    isSelected={isSelected} 
-                                    onClick={() => onSquareClick({x,y})}
-                                    isLastMoveSource={isLastSource}
-                                    isLastMoveDest={isLastDest}
-                                    rotate={rotateBlack && piece.color === Color.Black}
-                                />
-                            )}
-                        </div>
+                        <BoardCell 
+                            key={`${x}-${y}`}
+                            x={x}
+                            y={y}
+                            piece={piece}
+                            isSelected={isSelected}
+                            isValidMove={isValidMove}
+                            isLastSource={isLastSource}
+                            isLastDest={isLastDest}
+                            onSquareClick={onSquareClick}
+                            rotateBlack={rotateBlack}
+                        />
                     );
                 })
             ))}
