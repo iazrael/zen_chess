@@ -132,3 +132,27 @@ export const playWinSound = () => {
         osc.stop(start + duration);
     });
 };
+
+export const playInvalidMoveSound = () => {
+    if (globalVolume === 0) return;
+    const ctx = getCtx();
+    if (!ctx) return;
+
+    const t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    // Dissonant low frequency
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(150, t);
+    osc.frequency.linearRampToValueAtTime(100, t + 0.2);
+
+    gain.gain.setValueAtTime(0.1 * globalVolume, t);
+    gain.gain.exponentialRampToValueAtTime(0.01 * globalVolume, t + 0.2);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start();
+    osc.stop(t + 0.25);
+};

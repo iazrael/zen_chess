@@ -1,43 +1,44 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Zen Xiangqi</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            fontFamily: {
-              serif: ['"Songti SC"', '"SimSun"', '"STSong"', '"Times New Roman"', 'serif'],
-              calligraphy: ['"KaiTi"', '"STKaiti"', '"楷体"', '"ZCOOL XiaoWei"', 'serif'],
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Zen Xiangqi</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            serif: ['"Songti SC"', '"SimSun"', '"STSong"', '"Times New Roman"', 'serif'],
+            calligraphy: ['"KaiTi"', '"STKaiti"', '"楷体"', '"ZCOOL XiaoWei"', 'serif'],
+          },
+          colors: {
+            wood: {
+              100: '#f7e7ce',
+              200: '#e6cfaa',
+              300: '#d4b685',
+              400: '#c29e61',
+              500: '#b08d4f', // Main board
+              600: '#917038',
+              700: '#735626',
+              800: '#543d18',
+              900: '#3b290e',
             },
-            colors: {
-              wood: {
-                100: '#f7e7ce',
-                200: '#e6cfaa',
-                300: '#d4b685',
-                400: '#c29e61',
-                500: '#b08d4f', // Main board
-                600: '#917038',
-                700: '#735626',
-                800: '#543d18',
-                900: '#3b290e',
-              },
-              piece: {
-                light: '#fdf6e3',
-                shadow: '#d6c5a1',
-              }
-            },
-            boxShadow: {
-              'piece': '2px 2px 5px rgba(0,0,0,0.3), inset 0 0 10px rgba(255,255,255,0.5)',
-              'piece-selected': '0 0 15px rgba(255, 215, 0, 0.8), 2px 2px 5px rgba(0,0,0,0.3)',
+            piece: {
+              light: '#fdf6e3',
+              shadow: '#d6c5a1',
             }
           },
+          boxShadow: {
+            'piece': '2px 2px 5px rgba(0,0,0,0.3), inset 0 0 10px rgba(255,255,255,0.5)',
+            'piece-selected': '0 0 15px rgba(255, 215, 0, 0.8), 2px 2px 5px rgba(0,0,0,0.3)',
+          }
         },
-      }
-    </script>
+      },
+    }
+  </script>
   <script type="importmap">
 {
   "imports": {
@@ -53,9 +54,12 @@
   }
 }
 </script>
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
 </head>
-  <body class="bg-stone-900 text-stone-100">
-    <div id="root"></div>
-    <script type="module" src="./index.tsx"></script>
-  </body>
+
+<body class="bg-stone-900 text-stone-100">
+  <div id="root"></div>
+  <script type="module" src="./index.tsx"></script>
+</body>
+
 </html>

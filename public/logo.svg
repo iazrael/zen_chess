@@ -1,0 +1,5 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="256" cy="256" r="240" stroke="#78350f" stroke-width="24" stroke-linecap="round" stroke-dasharray="1000 200" transform="rotate(-45 256 256)" opacity="0.8"/>
+  <circle cx="256" cy="256" r="180" fill="#1c1917"/>
+  <text x="256" y="320" font-family="serif" font-size="200" fill="#d97706" text-anchor="middle" font-weight="bold">禅</text>
+</svg>
