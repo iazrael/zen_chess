@@ -531,13 +531,17 @@ function App() {
                         <span className="text-xs text-blue-400 font-bold">{minimaxDepth}</span>
                     </div>
                     <div className="grid grid-cols-3 gap-1">
-                        {[3, 4, 5].map(depth => (
+                        {[
+                            { name: 'Easy', depth: 3 },
+                            { name: 'Med', depth: 4 },
+                            { name: 'Hard', depth: 5 }
+                        ].map(({ name, depth }) => (
                             <button
                                 key={depth}
                                 onClick={() => setMinimaxDepth(depth)}
                                 className={`py-1 px-1 text-[10px] rounded border transition-all ${minimaxDepth === depth ? 'border-blue-500 bg-blue-500/20 text-blue-300' : 'border-stone-700 bg-stone-800/50 text-stone-500 hover:bg-stone-700'}`}
                             >
-                                {depth === 2 ? 'Easy' : depth === 3 ? 'Med' : 'Hard'}
+                                {name}
                             </button>
                         ))}
                     </div>
