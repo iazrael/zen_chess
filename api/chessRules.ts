@@ -358,3 +358,32 @@ export const isInCheck = (board: BoardState, color: Color): boolean => {
   }
   return false;
 };
+
+// 重复局面检测表 - 用于判和
+// 记录每个局面哈希值出现的次数
+export const REP_TABLE: Map<number, number> = new Map();
+
+// 重置重复局面检测表
+export function RESET_REP(): void {
+  REP_TABLE.clear();
+};
+
+// 扩展applyMove函数，返回被吃掉的棋子和哈希变化
+export function applyMoveEx(board: BoardState, from: Position, to: Position) {
+  const captured = board[to.y][to.x];
+  const piece = board[from.y][from.x];
+  
+  // 计算哈希变化
+  const fromHash = piece ? ZOBRIST_KEYS[from.y][from.x][pieceIndex(piece)] : 0;
+  const toHash = captured ? ZOBRIST_KEYS[to.y][to.x][pieceIndex(captured)] : 0;
+  const newHash = captured ? ZOBRIST_KEYS[to.y][to.x][pieceIndex(piece!)] : 0;
+  
+  const hashDelta = fromHash ^ toHash ^ newHash;
+  
+  // 执行移动
+  board[to.y][to.x] = piece;
+  board[from.y][from.x] = null;
+  
+  return { captured, hashDelta };
+};
+
