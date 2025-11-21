@@ -370,7 +370,7 @@ function App() {
                 />
                 <span className="text-6xl md:text-8xl font-bold font-calligraphy drop-shadow-[0_0_15px_rgba(245,158,11,0.5)]">象棋</span>
             </h1>
-            <p className="text-stone-400 tracking-[0.5em] uppercase mb-12 text-sm md:text-base">Zen Xiangqi</p>
+            <p className="text-stone-400 tracking-[0.5em] uppercase mb-12 text-sm md:text-base"></p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-3xl">
                 <button
@@ -395,7 +395,7 @@ function App() {
                             <Bot className="w-12 h-12" />
                         </div>
                         <h2 className="text-2xl font-bold text-stone-200">挑战 AI</h2>
-                        <p className="text-stone-500 text-sm">Vs Minimax / Gemini / OpenAI</p>
+                        <p className="text-stone-500 text-sm">Vs Minimax / Deepseek / OpenAI</p>
                     </div>
                 </button>
             </div>
