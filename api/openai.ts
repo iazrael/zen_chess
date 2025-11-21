@@ -60,41 +60,39 @@ export default async function handler(req: any, res: any) {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${config.apiKey}`
         };
-
-        const response = await fetch(`${config.apiUrl}${provider === 'gemini' ? `/${config.model}:generateContent?key=${config.apiKey}` : ''}`, {
-            method: 'POST',
-            headers: headers,
-            body: body
-        });
-
-        // 打印一下请求体
-        console.log(`${provider} API Request:`, body);
-
-        if (!response.ok) {
-            const err = await response.text();
-            console.error(`${provider} API Error:`, err);
-            res.status(500).json({ error: `${provider} API Error`, details: err });
-            return;
-        }
-
-        const data: any = await response.json();
         let content;
+        try{
+            const response = await fetch(`${config.apiUrl}${provider === 'gemini' ? `/${config.model}:generateContent?key=${config.apiKey}` : ''}`, {
+                method: 'POST',
+                headers: headers,
+                body: body
+            });
 
-        // Extract content based on provider
-        if (provider === 'gemini') {
-            content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        } else if (provider === 'qianwen') {
-            content = data.output?.choices?.[0]?.message?.content;
-        } else {
+            // 打印一下请求体
+            console.log(`${provider} API Request:`, body);
+
+            if (!response.ok) {
+                const err = await response.text();
+                console.error(`${provider} API Error:`, err);
+                res.status(500).json({ error: `${provider} API Error`, details: err });
+                return;
+            }
+
+            const data: any = await response.json();
+            
+            // Extract content based on provider
             content = data.choices?.[0]?.message?.content;
-        }
 
-        if (!content) {
-            res.status(500).json({ error: "Empty response from AI" });
-            return;
-        }
+            if (!content) {
+                res.status(500).json({ error: "Empty response from AI" });
+                return;
+            }
 
-        console.log(`${provider} API Response:`, content);
+            console.log(`${provider} API Response:`, content);
+        }catch(error){
+            console.error(`${provider} API Error:`, error);
+            res.status(500).json({ error: `${provider} API Error`, details: error });
+        }
 
         let result;
         try {
