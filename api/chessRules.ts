@@ -358,17 +358,3 @@ export const isInCheck = (board: BoardState, color: Color): boolean => {
   }
   return false;
 };
-// 重复局面计数器：key = 32 位 Zobrist 哈希，value = 出现次数
-const repMap = new Map<number, number>();
-
-// 供外部清空（新局、新搜索开始时调用）
-export const RESET_REP = (): void => repMap.clear();
-
-// 供外部读写：真正名字叫 REP_TABLE
-export const REP_TABLE = {
-  get(hash: number): number | undefined { return repMap.get(hash); },
-  set(hash: number, cnt: number) {
-    if (cnt <= 0) repMap.delete(hash);
-    else repMap.set(hash, cnt);
-  }
-};
