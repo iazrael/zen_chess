@@ -276,3 +276,99 @@ export const evaluateBoard = (board: BoardState, playerColor: Color): number => 
   }
   return score;
 };
+
+// 撤销上一步 applyMove（无易位/兵过路的中国象棋只需要恢复被吃子即可）
+export const undoMove = (
+  board: BoardState,
+  from: Position,
+  to: Position,
+  captured: Piece | null
+): void => {
+  // 把棋子搬回去
+  board[from.y][from.x] = board[to.y][to.x];
+  // 目标格恢复原来可能被吃的子（也可能 null）
+  board[to.y][to.x] = captured;
+};
+
+// 初始化只跑一次：15 种 PieceType × 2 色 × 90 格 的随机 32 位 key
+const ZOBRIST_KEYS: number[][][] = (() => {
+  const keys: number[][][] = Array(10).fill(0).map(() =>
+    Array(9).fill(0).map(() => Array(30).fill(0)));
+  const rng = (() => {
+    let x = 123456789;
+    return () => (x = Math.imul(x, 1664525) + 1013904223) >>> 0;
+  })();
+  for (let y = 0; y < 10; y++)
+    for (let x = 0; x < 9; x++)
+      for (let i = 0; i < 30; i++) keys[y][x][i] = rng();
+  return keys;
+})();
+
+// 把 Piece 映射到 0-29 的索引
+const pieceIndex = (p: Piece): number => {
+  const t: Record<PieceType, number> = {
+    [PieceType.General]: 0,
+    [PieceType.Advisor]: 1,
+    [PieceType.Elephant]: 2,
+    [PieceType.Horse]: 3,
+    [PieceType.Chariot]: 4,
+    [PieceType.Cannon]: 5,
+    [PieceType.Soldier]: 6,
+  };
+  return t[p.type] * 2 + (p.color === Color.Red ? 0 : 1);
+};
+
+// 对外接口：返回 32 位哈希
+export const computeHash = (board: BoardState): number => {
+  let h = 0;
+  for (let y = 0; y < 10; y++)
+    for (let x = 0; x < 9; x++) {
+      const p = board[y][x];
+      if (p) h ^= ZOBRIST_KEYS[y][x][pieceIndex(p)];
+    }
+  return h >>> 0; // 保证无符号
+};
+
+// 复用已有逻辑：看对方任意子能否走到己方帅/将所在格
+export const isInCheck = (board: BoardState, color: Color): boolean => {
+  // 先找王
+  let kingPos: Position | null = null;
+  for (let y = 0; y < 10; y++) {
+    for (let x = 0; x < 9; x++) {
+      const p = board[y][x];
+      if (p && p.type === PieceType.General && p.color === color) {
+        kingPos = { x, y };
+        break;
+      }
+    }
+    if (kingPos) break;
+  }
+  if (!kingPos) return false; // 不应该发生
+
+  // 枚举对方所有子的合法走法，看是否包含 kingPos
+  const enemy = color === Color.Red ? Color.Black : Color.Red;
+  for (let y = 0; y < 10; y++) {
+    for (let x = 0; x < 9; x++) {
+      const p = board[y][x];
+      if (p && p.color === enemy) {
+        const moves = getValidMovesForPiece(board, { x, y });
+        if (moves.some(m => m.x === kingPos!.x && m.y === kingPos!.y)) return true;
+      }
+    }
+  }
+  return false;
+};
+// 重复局面计数器：key = 32 位 Zobrist 哈希，value = 出现次数
+const repMap = new Map<number, number>();
+
+// 供外部清空（新局、新搜索开始时调用）
+export const RESET_REP = (): void => repMap.clear();
+
+// 供外部读写：真正名字叫 REP_TABLE
+export const REP_TABLE = {
+  get(hash: number): number | undefined { return repMap.get(hash); },
+  set(hash: number, cnt: number) {
+    if (cnt <= 0) repMap.delete(hash);
+    else repMap.set(hash, cnt);
+  }
+};

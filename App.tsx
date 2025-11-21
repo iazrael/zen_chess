@@ -2,10 +2,10 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Board } from './components/Board';
 import { Confetti } from './components/Confetti';
 import { GameTimer } from './components/GameTimer';
-import { INITIAL_BOARD, PIECE_CHARS } from './api/common/constants';
-import { BoardState, Color, Position, Move, GameStatus, AIModel, Piece } from './api/common/types';
+import { INITIAL_BOARD, PIECE_CHARS, COL_NUMERALS, MOVE_DIRECTIONS } from './api/common/constants';
+import { BoardState, Color, Position, Move, GameStatus, AIModel, Piece, PieceType } from './api/common/types';
 import { getLegalMoves, applyMove, isCheck } from './api/chessRules';
-import { getBestMoveMinimax } from './api/minimax';
+import { getBestMoveMinimax } from './utils/minimax';
 import { getGeminiMove } from './services/geminiService';
 import { getOpenAIMove } from './services/openaiService';
 import { playMoveSound, playCaptureSound, playWinSound, playSelectSound, playInvalidMoveSound, setGlobalVolume } from './utils/sound';
@@ -140,8 +140,46 @@ function App() {
     };
 
     const getMoveNotation = (piece: Piece, from: Position, to: Position) => {
-        const char = PIECE_CHARS[piece.color][piece.type];
-        return `${char} (${from.x},${from.y}) → (${to.x},${to.y})`;
+        const isRed = piece.color === Color.Red;
+
+        // 1. Get Piece Character
+        const pieceChar = PIECE_CHARS[piece.color][piece.type];
+
+        // 2. Calculate From Column (1-9)
+        // Red: Right (x=8) is 1. Black: Right (x=0) is 1.
+        const fromCol = isRed ? (9 - from.x) : (from.x + 1);
+
+        // 3. Calculate Direction and Value
+        let dir = '';
+        let val = 0;
+
+        const isHorizontal = from.y === to.y;
+
+        if (isHorizontal) {
+            dir = MOVE_DIRECTIONS[piece.color].Horizontal; // 平
+            // Value is Target Column
+            val = isRed ? (9 - to.x) : (to.x + 1);
+        } else {
+            // Vertical
+            const isMovingForward = isRed ? (to.y < from.y) : (to.y > from.y);
+            dir = isMovingForward ? MOVE_DIRECTIONS[piece.color].Forward : MOVE_DIRECTIONS[piece.color].Backward; // 进/退
+
+            // Value depends on piece type
+            // Horse, Elephant, Advisor, General: Always Target Column
+            if ([PieceType.Horse, PieceType.Elephant, PieceType.Advisor, PieceType.General].includes(piece.type)) {
+                val = isRed ? (9 - to.x) : (to.x + 1);
+            } else {
+                // Chariot, Cannon, Soldier: Distance
+                val = Math.abs(to.y - from.y);
+            }
+        }
+
+        // 4. Format String
+        // Red uses Chinese numerals for everything. Black uses Arabic.
+        const colStr = COL_NUMERALS[piece.color][fromCol];
+        const valStr = COL_NUMERALS[piece.color][val];
+
+        return `${pieceChar}${colStr}${dir}${valStr}`;
     };
 
     const executeMoveStable = useCallback((from: Position, to: Position) => {

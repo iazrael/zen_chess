@@ -57,12 +57,12 @@ export const constructPrompt = (fen: string, turn: Color, legalMovesStr: string)
     // Generate visual board representation
     const fenRows = fen.split(' ')[0].split('/');
     let visualBoard = '\n  0 1 2 3 4 5 6 7 8\n';
-    
+
     for (let y = 0; y < fenRows.length; y++) {
         let rowStr = `${y} `;
         let fenRow = fenRows[y];
         let x = 0;
-        
+
         for (let i = 0; i < fenRow.length; i++) {
             const char = fenRow[i];
             if (/[0-9]/.test(char)) {
@@ -74,8 +74,8 @@ export const constructPrompt = (fen: string, turn: Color, legalMovesStr: string)
             } else {
                 // Map FEN characters to visual representation
                 const visualChar = {
-                    'r': '俥', 'n': '傌', 'b': '象', 'a': '士', 'k': '将', 'c': '砲', 'p': '卒',
-                    'R': '車', 'N': '馬', 'B': '相', 'A': '仕', 'K': '帥', 'C': '炮', 'P': '兵'
+                    'r': '車', 'n': '馬', 'b': '象', 'a': '士', 'k': '將', 'c': '砲', 'p': '卒',
+                    'R': '俥', 'N': '傌', 'B': '相', 'A': '仕', 'K': '帥', 'C': '炮', 'P': '兵'
                 }[char] || char;
                 rowStr += visualChar;
                 x++;
@@ -83,7 +83,7 @@ export const constructPrompt = (fen: string, turn: Color, legalMovesStr: string)
         }
         visualBoard += rowStr + '\n';
     }
-    
+
     return `Current Board FEN: ${fen}
   
 Color to move: ${turn === Color.Red ? "RED" : "BLACK"}.

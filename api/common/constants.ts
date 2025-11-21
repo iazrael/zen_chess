@@ -18,19 +18,41 @@ export const PIECE_CHARS: Record<string, Record<string, string>> = {
     [PieceType.General]: '帥',
     [PieceType.Advisor]: '仕',
     [PieceType.Elephant]: '相',
-    [PieceType.Horse]: '馬',
-    [PieceType.Chariot]: '車',
+    [PieceType.Horse]: '傌',
+    [PieceType.Chariot]: '俥',
     [PieceType.Cannon]: '炮',
     [PieceType.Soldier]: '兵',
   },
   [Color.Black]: {
-    [PieceType.General]: '将',
+    [PieceType.General]: '將',
     [PieceType.Advisor]: '士',
     [PieceType.Elephant]: '象',
-    [PieceType.Horse]: '傌',
-    [PieceType.Chariot]: '俥',
+    [PieceType.Horse]: '馬',
+    [PieceType.Chariot]: '車',
     [PieceType.Cannon]: '砲',
     [PieceType.Soldier]: '卒',
+  }
+};
+
+export const COL_NUMERALS: Record<string, Record<number, string>> = {
+  [Color.Red]: {
+    1: '一', 2: '二', 3: '三', 4: '四', 5: '五', 6: '六', 7: '七', 8: '八', 9: '九'
+  },
+  [Color.Black]: {
+    1: '1', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9'
+  }
+};
+
+export const MOVE_DIRECTIONS: Record<string, Record<string, string>> = {
+  [Color.Red]: {
+    Forward: '进',
+    Backward: '退',
+    Horizontal: '平'
+  },
+  [Color.Black]: {
+    Forward: '进',
+    Backward: '退',
+    Horizontal: '平'
   }
 };
 

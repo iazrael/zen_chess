@@ -1,5 +1,5 @@
-import { BoardState, Color, Position } from "./common/types.js";
-import { getLegalMoves, applyMove, evaluateBoard, cloneBoard } from "./chessRules.js";
+import { BoardState, Color, Position } from "../api/common/types.js";
+import { getLegalMoves, applyMove, evaluateBoard, cloneBoard } from "../api/chessRules.js";
 
 // Simple Minimax with Alpha-Beta Pruning
 // Note: In a real app, this should be a Web Worker to avoid freezing UI.

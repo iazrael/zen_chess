@@ -21,7 +21,6 @@
     // 对 server 目录，我们希望可以单独编译输出 JS
     "outDir": "./dist",
     "rootDir": "..",
-    "baseUrl": "..",
     // 避免影响前端的 bundler 解析规则
     "resolveJsonModule": true
   },
