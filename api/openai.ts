@@ -52,7 +52,7 @@ export default async function handler(req: any, res: any) {
                 { role: "system", content: systemPrompt },
                 { role: "user", content: prompt }
             ],
-            temperature: 0.3,
+            temperature: 0.1,
             response_format: { type: "json_object" }
         });
 
@@ -61,44 +61,38 @@ export default async function handler(req: any, res: any) {
             'Authorization': `Bearer ${config.apiKey}`
         };
         let content;
-        try{
-            const response = await fetch(`${config.apiUrl}${provider === 'gemini' ? `/${config.model}:generateContent?key=${config.apiKey}` : ''}`, {
-                method: 'POST',
-                headers: headers,
-                body: body
-            });
+        
+        const response = await fetch(config.apiUrl, {
+            method: 'POST',
+            headers: headers,
+            body: body
+        });
 
-            // 打印一下请求体
-            console.log(`${provider} API Request:`, body);
+        // 打印一下请求体
+        console.log(`${provider} API Request:`, body);
 
-            if (!response.ok) {
-                const err = await response.text();
-                console.error(`${provider} API Error:`, err);
-                res.status(500).json({ error: `${provider} API Error`, details: err });
-                return;
-            }
+        if (!response.ok) {
+            const err = await response.text();
+            console.error(`${provider} API Error:`, err);
+            res.status(200).json({ ...allLegalMoves[0], reason: `${provider} API Request Error: ${err}`,});
+            return;
+        }
 
-            const data: any = await response.json();
-            
-            // Extract content based on provider
-            content = data.choices?.[0]?.message?.content;
+        const data: any = await response.json();
+        console.log(`${provider} API Response:`, data);
 
-            if (!content) {
-                res.status(500).json({ error: "Empty response from AI" });
-                return;
-            }
+        content = data.choices?.[0]?.message?.content;
 
-            console.log(`${provider} API Response:`, content);
-        }catch(error){
-            console.error(`${provider} API Error:`, error);
-            res.status(500).json({ error: `${provider} API Error`, details: error });
+        if (!content) {
+            res.status(200).json({ ...allLegalMoves[0], reason: "Empty response from AI" });
+            return;
         }
 
         let result;
         try {
             result = JSON.parse(content);
         } catch (e) {
-            console.warn(`Failed to parse JSON from ${provider}`, content);
+            console.error(`Failed to parse JSON from ${provider}: ${content}. Error: ${e}`);
             res.status(200).json({ ...allLegalMoves[0], reason: "Fallback (JSON parse error)" });
             return;
         }
@@ -108,13 +102,13 @@ export default async function handler(req: any, res: any) {
         if (moveData) {
             res.status(200).json({ ...moveData, reason: result.reasoning });
         } else {
-            console.warn(`${provider} returned invalid move format, picking first legal move`);
+            console.error(`${provider} returned invalid move format, picking first legal move`);
             res.status(200).json({ ...allLegalMoves[0], reason: "Fallback move (invalid format)" });
         }
 
     } catch (error) {
         console.error(`${provider} API Error:`, error);
-        res.status(500).json({ error: "Internal Server Error", details: error });
+        res.status(502).json({ error: "Internal Server Error", details: error });
     }
 }
 
