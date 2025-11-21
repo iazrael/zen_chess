@@ -361,8 +361,14 @@ function App() {
 
     const HomeView = () => (
         <div className="flex flex-col items-center justify-center min-h-screen p-4 animate-fade-in">
-            <h1 className="text-6xl md:text-8xl font-bold font-calligraphy text-amber-500 mb-2 drop-shadow-[0_0_15px_rgba(245,158,11,0.5)] text-center">
-                中国象棋
+            <h1 className="flex items-center justify-center gap-2 md:gap-4 text-amber-500 mb-2 text-center">
+                <span className="text-6xl md:text-8xl font-bold font-calligraphy drop-shadow-[0_0_15px_rgba(245,158,11,0.5)]">中国</span>
+                <img 
+                    src="/logo.svg" 
+                    alt="中国象棋 Logo" 
+                    className="w-16 h-16 md:w-24 md:h-24 object-contain drop-shadow-[0_0_15px_rgba(245,158,11,0.3)]"
+                />
+                <span className="text-6xl md:text-8xl font-bold font-calligraphy drop-shadow-[0_0_15px_rgba(245,158,11,0.5)]">象棋</span>
             </h1>
             <p className="text-stone-400 tracking-[0.5em] uppercase mb-12 text-sm md:text-base">Zen Xiangqi</p>
 
