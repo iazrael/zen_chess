@@ -2,7 +2,7 @@
 
 import { expose } from 'comlink';
 import {MinimaxWorkerAPI} from './types.js';
-import { getBestMoveMinimax } from '@/api/minimax.js';
+import { getBestMoveMinimax } from '@/api/minimaxV2.js';
 
 const minimaxWorkerAPI: MinimaxWorkerAPI = {
   getBestMoveMinimax,

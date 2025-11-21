@@ -207,6 +207,38 @@ function enhancedEvaluateBoard(board: BoardState, playerColor: Color): number {
       mobilityScore += legalMoves.length * colorFactor * 0.5; // 机动性权重
     }
   }
+  for (let y = 0; y < board.length; y++) {
+    for (let x = 0; x < board[0].length; x++) {
+      const piece = board[y][x];
+      if (!piece) continue;
+      const val = values[piece.type] || 0;
+      const enemy = piece.color === Color.Red ? Color.Black : Color.Red;
+      let attacked = false;
+      let defended = false;
+      for (let ey = 0; ey < board.length && !attacked; ey++) {
+        for (let ex = 0; ex < board[0].length && !attacked; ex++) {
+          const ep = board[ey][ex];
+          if (ep && ep.color === enemy) {
+            const mv = getLegalMoves(board, { x: ex, y: ey });
+            if (mv.some(m => m.x === x && m.y === y)) attacked = true;
+          }
+        }
+      }
+      for (let fy = 0; fy < board.length && !defended; fy++) {
+        for (let fx = 0; fx < board[0].length && !defended; fx++) {
+          const fp = board[fy][fx];
+          if (fp && fp.color === piece.color) {
+            const mv = getLegalMoves(board, { x: fx, y: fy });
+            if (mv.some(m => m.x === x && m.y === y)) defended = true;
+          }
+        }
+      }
+      if (attacked) {
+        const penalty = defended ? val * 0.1 : val * 0.2;
+        score -= penalty * (piece.color === playerColor ? 1 : -1);
+      }
+    }
+  }
   
   // 5. 将军安全评分
   const isPlayerInCheck = isInCheck(board, playerColor);
@@ -304,8 +336,8 @@ function pvSearch(
   
   // 叶子节点或深度耗尽
   if (depth <= 0) {
-    // 使用增强的评估函数
-    return [enhancedEvaluateBoard(board, aiColor), null];
+    const qs = quiescenceSearch(board, alpha, beta, isMax, aiColor, ply);
+    return [qs, null];
   }
   
   // 将军延伸
@@ -415,6 +447,62 @@ function pvSearch(
   };
   
   return [bestScore, bestMove];
+}
+
+function generateTacticalMoves(board: BoardState, turnColor: Color): { from: Position; to: Position }[] {
+  const moves: { from: Position; to: Position }[] = [];
+  for (let y = 0; y < board.length; y++) {
+    for (let x = 0; x < board[0].length; x++) {
+      const p = board[y][x];
+      if (p && p.color === turnColor) {
+        const ls = getLegalMoves(board, { x, y });
+        for (const to of ls) {
+          const cap = board[to.y][to.x] !== null;
+          let chk = false;
+          if (!cap) {
+            const { captured } = applyMoveEx(board, { x, y }, to);
+            const opp = turnColor === Color.Red ? Color.Black : Color.Red;
+            chk = isInCheck(board, opp);
+            undoMove(board, { x, y }, to, captured);
+          }
+          if (cap || chk) moves.push({ from: { x, y }, to });
+        }
+      }
+    }
+  }
+  return moves;
+}
+
+function quiescenceSearch(
+  board: BoardState,
+  alpha: number,
+  beta: number,
+  isMax: boolean,
+  aiColor: Color,
+  ply: number
+): number {
+  const turnColor = isMax ? aiColor : (aiColor === Color.Red ? Color.Black : Color.Red);
+  const stand = enhancedEvaluateBoard(board, aiColor);
+  if (isMax) {
+    if (stand >= beta) return stand;
+    if (stand > alpha) alpha = stand;
+  } else {
+    if (stand <= alpha) return stand;
+    if (stand < beta) beta = stand;
+  }
+  const moves = generateTacticalMoves(board, turnColor);
+  for (const move of moves) {
+    const { captured } = applyMoveEx(board, move.from, move.to);
+    const score = quiescenceSearch(board, alpha, beta, !isMax, aiColor, ply + 1);
+    undoMove(board, move.from, move.to, captured);
+    if (isMax) {
+      if (score > alpha) alpha = score;
+    } else {
+      if (score < beta) beta = score;
+    }
+    if (alpha >= beta) break;
+  }
+  return isMax ? alpha : beta;
 }
 
 // 导出原始的minimax函数接口（保持兼容性）
