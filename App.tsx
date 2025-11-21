@@ -531,7 +531,7 @@ function App() {
                         <span className="text-xs text-blue-400 font-bold">{minimaxDepth}</span>
                     </div>
                     <div className="grid grid-cols-3 gap-1">
-                        {[2, 3, 4].map(depth => (
+                        {[3, 4, 5].map(depth => (
                             <button
                                 key={depth}
                                 onClick={() => setMinimaxDepth(depth)}
