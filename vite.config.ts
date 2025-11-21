@@ -1,6 +1,7 @@
 import path from 'path';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+import comlink from 'vite-plugin-comlink';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
@@ -9,12 +10,17 @@ export default defineConfig(({ mode }) => {
       port: 3000,
       host: '0.0.0.0',
     },
-    plugins: [react()],
+    plugins: [
+      comlink(),            // 一定要放在最前面
+      react(),
+    ],
+    worker: {
+      plugins: () => [comlink()] // 让插件同时处理 Worker  chunk
+    },
     // 设置 base 为 './' 使得部署在 GitHub Pages 子路径时能正确引用资源
     base: './',
     define: {
       // 允许在构建时注入环境变量
-      'process.env.GEMINI_API_KEY': JSON.stringify(process.env.GEMINI_API_KEY),
       'process.env.OPENAI_API_KEY': JSON.stringify(process.env.OPENAI_API_KEY),
       'process.env.OPENAI_API_URL': JSON.stringify(process.env.OPENAI_API_URL),
       'process.env.OPENAI_MODEL': JSON.stringify(process.env.OPENAI_MODEL)

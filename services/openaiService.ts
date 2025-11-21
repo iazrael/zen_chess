@@ -1,4 +1,4 @@
-import { BoardState, Color, Position } from "../api/common/types";
+import { BoardState, Color, Position } from "@/api/common/types";
 
 export const getOpenAIMove = async (board: BoardState, turn: Color, provider: string = 'deepseek'): Promise<{ from: Position; to: Position; reason: string } | null> => {
   try {

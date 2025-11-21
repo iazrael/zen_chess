@@ -5,7 +5,7 @@ import { GameTimer } from './components/GameTimer';
 import { INITIAL_BOARD, PIECE_CHARS, COL_NUMERALS, MOVE_DIRECTIONS } from './api/common/constants';
 import { BoardState, Color, Position, Move, GameStatus, AIModel, Piece, PieceType } from './api/common/types';
 import { getLegalMoves, applyMove, isCheck } from './api/chessRules';
-import { getBestMoveMinimax } from './api/minimax';
+import { getMinimaxMoveWorker } from './services/minimaxService';
 import { getOpenAIMove } from './services/openaiService';
 import { playMoveSound, playCaptureSound, playWinSound, playSelectSound, playInvalidMoveSound, setGlobalVolume } from './utils/sound';
 import { Undo2, RotateCcw, BrainCircuit, Sparkles, ScrollText, Settings, Volume2, VolumeX, X, Users, Bot, ChevronLeft, Home, History as HistoryIcon, Zap } from 'lucide-react';
@@ -51,7 +51,7 @@ function App() {
     const [aiProvider, setAiProvider] = useState<string>('deepseek'); // New state for AI provider
     const [aiThinking, setAiThinking] = useState(false);
     const [aiReasoning, setAiReasoning] = useState<string | null>(null);
-    const [minimaxDepth, setMinimaxDepth] = useState(3);
+    const [minimaxDepth, setMinimaxDepth] = useState(4);
 
     // UI State
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -305,7 +305,7 @@ function App() {
 
                 try {
                     if (aiModel === AIModel.Traditional) {
-                        move = await getBestMoveMinimax(board, turn, minimaxDepth);
+                        move = await getMinimaxMoveWorker(board, turn, minimaxDepth);
                     } else if (aiModel === AIModel.OpenAI) {
                         move = await getOpenAIMove(board, turn, aiProvider); // Pass aiProvider
                         if (move?.reason) setAiReasoning(move.reason);
@@ -666,30 +666,6 @@ function App() {
                     {/* Mobile: AI Console Bottom */}
                     <div className="lg:hidden w-full max-w-[600px] mt-4">
                         {AIConsole()}
-                    </div>
-                </div>
-
-                {/* Desktop: Right Sidebar (History) - Hidden on mobile */}
-                <div className="hidden lg:flex w-[300px] flex-col gap-4 flex-shrink-0 order-3 sticky top-4">
-                    <div className={`${THEME.panelBg} rounded-xl p-4 border ${THEME.panelBorder} backdrop-blur-sm`}>
-                        <h2 className="text-sm font-bold text-stone-300 flex items-center gap-2 mb-3">
-                            <ScrollText className="w-4 h-4 text-amber-500" /> History
-                        </h2>
-                        <div ref={historyContainerRef} className="h-[400px] overflow-y-auto space-y-1 scrollbar-thin">
-                            {moveList.length === 0 ? (
-                                <div className="text-stone-600 text-center py-10 italic text-xs">No moves yet</div>
-                            ) : (
-                                moveList.map((move, index) => (
-                                    <div key={index} className={`flex items-center gap-3 p-2 rounded text-xs ${index === moveList.length - 1 ? 'bg-amber-900/20 border border-amber-800/50' : 'hover:bg-stone-800'}`}>
-                                        <span className="text-stone-500 w-5 text-right font-mono">{index + 1}.</span>
-                                        <div className={`flex items-center gap-2 ${index % 2 === 0 ? 'text-red-400' : 'text-stone-300'}`}>
-                                            <span>{index % 2 === 0 ? '🔴' : '⚫'}</span>
-                                            <span>{move}</span>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
                     </div>
                 </div>
             </div>
