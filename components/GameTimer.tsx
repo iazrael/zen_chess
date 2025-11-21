@@ -18,6 +18,12 @@ export const GameTimer: React.FC<GameTimerProps> = ({ initialTime, isActive, onT
     setTimeLeft(initialTime);
   }, [initialTime, resetKey]);
 
+  const onTimeOutRef = useRef(onTimeOut);
+
+  useEffect(() => {
+    onTimeOutRef.current = onTimeOut;
+  }, [onTimeOut]);
+
   useEffect(() => {
     if (!isActive || initialTime === 0) return;
 
@@ -25,7 +31,7 @@ export const GameTimer: React.FC<GameTimerProps> = ({ initialTime, isActive, onT
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
-          onTimeOut();
+          onTimeOutRef.current();
           return 0;
         }
         return prev - 1;
@@ -33,7 +39,7 @@ export const GameTimer: React.FC<GameTimerProps> = ({ initialTime, isActive, onT
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isActive, initialTime, onTimeOut]);
+  }, [isActive, initialTime]);
 
   const formatTime = (seconds: number) => {
     if (initialTime === 0) return "∞";
@@ -44,12 +50,12 @@ export const GameTimer: React.FC<GameTimerProps> = ({ initialTime, isActive, onT
 
   return (
     <div className={`flex-1 p-2 rounded-lg border flex flex-col items-center transition-all duration-300 ${isActive ? 'bg-stone-700/50 border-stone-500' : 'bg-stone-800/30 border-transparent opacity-60'}`}>
-        <div className={`text-[10px] ${colorClass} font-bold uppercase tracking-wider flex items-center gap-1`}>
-            <Clock className="w-3 h-3" /> {label}
-        </div>
-        <div className={`text-xl md:text-2xl font-mono font-bold text-stone-200 ${isActive && timeLeft < 30 && initialTime > 0 ? 'animate-pulse text-red-500' : ''}`}>
-            {formatTime(timeLeft)}
-        </div>
+      <div className={`text-[10px] ${colorClass} font-bold uppercase tracking-wider flex items-center gap-1`}>
+        <Clock className="w-3 h-3" /> {label}
+      </div>
+      <div className={`text-xl md:text-2xl font-mono font-bold text-stone-200 ${isActive && timeLeft < 30 && initialTime > 0 ? 'animate-pulse text-red-500' : ''}`}>
+        {formatTime(timeLeft)}
+      </div>
     </div>
   );
 };
