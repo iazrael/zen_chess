@@ -698,8 +698,8 @@ function App() {
 
     return (
         <div className={`${THEME.bgApp} ${THEME.textMain} min-h-screen`}>
-            {view === 'home' ? <HomeView /> : <GameView />}
-            <HistoryModal />
+            {view === 'home' ? HomeView() : GameView()}
+            {HistoryModal()}
             {gameStatus !== GameStatus.Playing && <Confetti />}
         </div>
     );
