@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { BoardState, Position, Color, Move, Piece } from '../api/common/types';
+import { BoardState, Position, Color, Move, Piece, CaptureAnimationState } from '../api/common/types';
 import { PieceComponent } from './Piece';
 
 interface BoardProps {
@@ -9,6 +9,7 @@ interface BoardProps {
     validMoves: Position[];
     lastMove: Move | null;
     rotateBlack?: boolean;
+    captureAnimation?: CaptureAnimationState | null;
     // Theme Props
     boardBgClass?: string;
     boardBorderClass?: string;
@@ -26,10 +27,11 @@ interface BoardCellProps {
     isLastDest: boolean;
     onSquareClick: (pos: Position) => void;
     rotateBlack?: boolean;
+    isCaptured?: boolean;
 }
 
 // Memoized cell component to prevent unnecessary re-renders
-const BoardCell = memo(({ x, y, piece, isSelected, isValidMove, isLastSource, isLastDest, onSquareClick, rotateBlack }: BoardCellProps) => {
+const BoardCell = memo(({ x, y, piece, isSelected, isValidMove, isLastSource, isLastDest, onSquareClick, rotateBlack, isCaptured = false }: BoardCellProps) => {
     return (
         <div
             className="relative flex items-center justify-center"
@@ -48,14 +50,15 @@ const BoardCell = memo(({ x, y, piece, isSelected, isValidMove, isLastSource, is
             {/* The Piece */}
             {piece && (
                 <PieceComponent
-                    piece={piece}
-                    isSelected={isSelected}
-                    onSquareClick={onSquareClick}
-                    position={{ x, y }}
-                    isLastMoveSource={isLastSource}
-                    isLastMoveDest={isLastDest}
-                    rotate={rotateBlack && piece.color === Color.Black}
-                />
+                        piece={piece}
+                        isSelected={isSelected}
+                        onSquareClick={onSquareClick}
+                        position={{ x, y }}
+                        isLastMoveSource={isLastSource}
+                        isLastMoveDest={isLastDest}
+                        rotate={rotateBlack && piece.color === Color.Black}
+                        isCaptured={isCaptured}
+                    />
             )}
         </div>
     );
@@ -71,6 +74,7 @@ export const Board = memo(({
     validMoves,
     lastMove,
     rotateBlack,
+    captureAnimation,
     boardBgClass = "bg-wood-500",
     boardBorderClass = "border-wood-700",
     gridColor = "#543d18",
@@ -157,6 +161,12 @@ export const Board = memo(({
                             const isValidMove = validMoves.some(m => m.x === x && m.y === y);
                             const isLastSource = lastMove?.from.x === x && lastMove?.from.y === y;
                             const isLastDest = lastMove?.to.x === x && lastMove?.to.y === y;
+                            
+                            // 检查当前位置是否有吃子动画正在进行
+                            const isCaptured = captureAnimation?.position.x === x && 
+                                             captureAnimation?.position.y === y && 
+                                             captureAnimation?.isAnimating && 
+                                             captureAnimation?.piece.id === piece?.id;
 
                             return (
                                 <BoardCell
@@ -170,6 +180,7 @@ export const Board = memo(({
                                     isLastDest={isLastDest}
                                     onSquareClick={onSquareClick}
                                     rotateBlack={rotateBlack}
+                                    isCaptured={isCaptured}
                                 />
                             );
                         })

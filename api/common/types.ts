@@ -58,3 +58,10 @@ export interface GameContextType {
   resetGame: () => void;
   undoMove: () => void;
 }
+
+// 吃子动画状态接口
+export interface CaptureAnimationState {
+  position: Position;  // 被吃棋子的位置
+  piece: Piece;       // 被吃的棋子
+  isAnimating: boolean; // 动画是否正在进行
+}

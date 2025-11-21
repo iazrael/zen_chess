@@ -3,7 +3,7 @@ import { Board } from './components/Board';
 import { Confetti } from './components/Confetti';
 import { GameTimer } from './components/GameTimer';
 import { INITIAL_BOARD, PIECE_CHARS, COL_NUMERALS, MOVE_DIRECTIONS } from './api/common/constants';
-import { BoardState, Color, Position, Move, GameStatus, AIModel, Piece, PieceType } from './api/common/types';
+import { BoardState, Color, Position, Move, GameStatus, AIModel, Piece, PieceType, CaptureAnimationState } from './api/common/types';
 import { getLegalMoves, applyMove, isCheck } from './api/chessRules';
 import { getMinimaxMoveWorker } from './services/minimaxService';
 import { getOpenAIMove } from './services/openaiService';
@@ -40,6 +40,8 @@ function App() {
     const [lastMove, setLastMove] = useState<Move | null>(null);
     const [gameStatus, setGameStatus] = useState<GameStatus>(GameStatus.Playing);
     const [isAnimating, setIsAnimating] = useState(false);
+    // 新增：吃子动画状态，记录当前正在被吃的棋子位置和状态
+    const [captureAnimation, setCaptureAnimation] = useState<CaptureAnimationState | null>(null);
 
     // Timer State (Only initial settings, running time is inside GameTimer)
     const [initialTime, setInitialTime] = useState<number>(600);
@@ -70,7 +72,8 @@ function App() {
         aiProvider, // Add aiProvider to ref
         aiThinking,
         gameStatus,
-        isAnimating
+        isAnimating,
+        captureAnimation
     });
 
     // Sync ref with state on every render
@@ -84,7 +87,8 @@ function App() {
             aiProvider, // Add aiProvider to ref
             aiThinking,
             gameStatus,
-            isAnimating
+            isAnimating,
+            captureAnimation
         };
     });
 
@@ -182,66 +186,83 @@ function App() {
     };
 
     const executeMoveStable = useCallback((from: Position, to: Position) => {
+        const currentBoard = gameStateRef.current.board;
+        const movedPiece = currentBoard[from.y][from.x];
+        const targetPiece = currentBoard[to.y][to.x];
+        
         setIsAnimating(true);
-        setBoard(currentBoard => {
-            const movedPiece = currentBoard[from.y][from.x];
-            const targetPiece = currentBoard[to.y][to.x];
-
-            if (targetPiece) playCaptureSound();
-            else playMoveSound();
-
-            const notation = movedPiece ? getMoveNotation(movedPiece, from, to) : "";
-            if (notation) setMoveList(prev => [...prev, notation]);
-
-            // Update History using current state
-            setTurn(currentTurn => {
-                setHistory(prevHistory => [
-                    ...prevHistory,
-                    {
-                        board: currentBoard,
-                        turn: currentTurn,
-                        lastMove: { from, to, captured: targetPiece || undefined },
-                    }
-                ]);
-
-                // Apply Move
-                const newBoard = applyMove(currentBoard, from, to);
-
-                // Check Game Over on new board
-                const nextTurn = currentTurn === Color.Red ? Color.Black : Color.Red;
-
-                let hasMoves = false;
-                for (let y = 0; y < 10; y++) {
-                    for (let x = 0; x < 9; x++) {
-                        const p = newBoard[y][x];
-                        if (p && p.color === nextTurn) {
-                            if (getLegalMoves(newBoard, { x, y }).length > 0) {
-                                hasMoves = true;
-                                break;
-                            }
+        
+        // 如果有目标棋子（吃子），设置吃子动画状态
+        if (targetPiece) {
+            playCaptureSound();
+            // 设置吃子动画状态，包含被吃棋子的信息
+            setCaptureAnimation({
+                position: to,
+                piece: targetPiece,
+                isAnimating: true
+            });
+        } else {
+            playMoveSound();
+        }
+        
+        // 记录走法符号
+        const notation = movedPiece ? getMoveNotation(movedPiece, from, to) : "";
+        if (notation) setMoveList(prev => [...prev, notation]);
+        
+        // 设置最后一步棋
+        setLastMove({ from, to, captured: targetPiece || undefined });
+        setSelectedPos(null);
+        setValidMoves([]);
+        
+        // 等待一小段时间让吃子动画开始播放，然后再应用移动
+        // 这样可以确保移动的棋子有平滑的动画过渡，而不是直接闪现
+        setTimeout(() => {
+            // 应用移动到棋盘
+            setBoard(prevBoard => applyMove(prevBoard, from, to));
+            
+            // 更新历史记录和回合
+            const currentTurn = gameStateRef.current.turn;
+            setHistory(prevHistory => [
+                ...prevHistory,
+                {
+                    board: currentBoard,
+                    turn: currentTurn,
+                    lastMove: { from, to, captured: targetPiece || undefined },
+                }
+            ]);
+            
+            const nextTurn = currentTurn === Color.Red ? Color.Black : Color.Red;
+            setTurn(nextTurn);
+            
+            // 检查游戏是否结束
+            const newBoard = applyMove(currentBoard, from, to);
+            let hasMoves = false;
+            for (let y = 0; y < 10; y++) {
+                for (let x = 0; x < 9; x++) {
+                    const p = newBoard[y][x];
+                    if (p && p.color === nextTurn) {
+                        if (getLegalMoves(newBoard, { x, y }).length > 0) {
+                            hasMoves = true;
+                            break;
                         }
                     }
-                    if (hasMoves) break;
                 }
-
-                if (!hasMoves) {
-                    setGameStatus(nextTurn === Color.Red ? GameStatus.BlackWin : GameStatus.RedWin);
-                }
-
-                return nextTurn;
-            });
-
-            setLastMove({ from, to, captured: targetPiece || undefined });
-            setSelectedPos(null);
-            setValidMoves([]);
-
-            return applyMove(currentBoard, from, to);
-        });
-
-        // 重置动画状态，给动画一些时间完成
-        setTimeout(() => {
-            setIsAnimating(false);
-        }, 300); // 300ms 应该足够动画完成
+                if (hasMoves) break;
+            }
+            
+            if (!hasMoves) {
+                setGameStatus(nextTurn === Color.Red ? GameStatus.BlackWin : GameStatus.RedWin);
+            }
+            
+            // 重置动画状态，给动画足够的时间完成
+            setTimeout(() => {
+                setIsAnimating(false);
+                // 重置吃子动画状态，但保留足够的时间让动画播放完成
+                setTimeout(() => {
+                    setCaptureAnimation(null);
+                }, 500); // 增加吃子动画的保留时间
+            }, 800); // 800ms 应该足够完整的动画效果显示
+        }, 50); // 短暂延迟，确保动画能够开始
     }, []);
 
     // Fully stable handler that doesn't change reference when validMoves changes
@@ -364,7 +385,7 @@ function App() {
             <h1 className="flex items-center justify-center gap-2 md:gap-4 text-amber-500 mb-2 text-center">
                 <span className="text-6xl md:text-8xl font-bold font-calligraphy drop-shadow-[0_0_15px_rgba(245,158,11,0.5)]">中国</span>
                 <img 
-                    src="/logo.svg" 
+                    src="./logo.svg" 
                     alt="中国象棋 Logo" 
                     className="w-16 h-16 md:w-24 md:h-24 object-contain drop-shadow-[0_0_15px_rgba(245,158,11,0.3)]"
                 />
@@ -666,6 +687,7 @@ function App() {
                             boardBorderClass={THEME.boardBorder}
                             gridColor={THEME.gridColor}
                             woodTexture={THEME.woodTexture}
+                            captureAnimation={captureAnimation}
                         />
                     </div>
 
