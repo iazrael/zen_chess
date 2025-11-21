@@ -1,9 +1,6 @@
 import { parseMoveString } from "./chessRules.js";
 import { getGameContext, constructPrompt, systemPrompt } from "./utils.js";
-
-const apiKey = process.env.OPENAI_API_KEY || '';
-const apiUrl = process.env.OPENAI_API_URL || 'https://api.openai.com/v1/chat/completions';
-const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+import { getAIProviderConfig } from "./common/config.js";
 
 export default async function handler(req: any, res: any) {
     // CORS headers
@@ -25,10 +22,13 @@ export default async function handler(req: any, res: any) {
         return;
     }
 
-    const { board, turn } = req.body;
+    const { board, turn, provider = 'openai' } = req.body;
 
-    if (!apiKey) {
-        res.status(500).json({ error: "API Key missing configuration" });
+    // Get configuration for the specified provider
+    const config = getAIProviderConfig(provider);
+
+    if (!config.apiKey) {
+        res.status(500).json({ error: `API Key missing configuration for ${provider}` });
         return;
     }
 
@@ -42,8 +42,12 @@ export default async function handler(req: any, res: any) {
 
         const prompt = constructPrompt(fen, turn, legalMovesStr);
 
-        const body = JSON.stringify({
-            model: model,
+        let body;
+        let headers;
+
+        // Configure request
+        body = JSON.stringify({
+            model: config.model,
             messages: [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: prompt }
@@ -52,40 +56,51 @@ export default async function handler(req: any, res: any) {
             response_format: { type: "json_object" }
         });
 
-        const response = await fetch(apiUrl, {
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${config.apiKey}`
+        };
+
+        const response = await fetch(`${config.apiUrl}${provider === 'gemini' ? `/${config.model}:generateContent?key=${config.apiKey}` : ''}`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
-            },
+            headers: headers,
             body: body
         });
 
         // 打印一下请求体
-        console.log("OpenAI API Request:", body);
+        console.log(`${provider} API Request:`, body);
 
         if (!response.ok) {
             const err = await response.text();
-            console.error("OpenAI API Error:", err);
-            res.status(500).json({ error: "OpenAI API Error", details: err });
+            console.error(`${provider} API Error:`, err);
+            res.status(500).json({ error: `${provider} API Error`, details: err });
             return;
         }
 
         const data: any = await response.json();
-        const content = data.choices?.[0]?.message?.content;
+        let content;
+
+        // Extract content based on provider
+        if (provider === 'gemini') {
+            content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        } else if (provider === 'qianwen') {
+            content = data.output?.choices?.[0]?.message?.content;
+        } else {
+            content = data.choices?.[0]?.message?.content;
+        }
 
         if (!content) {
             res.status(500).json({ error: "Empty response from AI" });
             return;
         }
 
-        console.log("OpenAI API Response:", content);
+        console.log(`${provider} API Response:`, content);
 
         let result;
         try {
             result = JSON.parse(content);
         } catch (e) {
-            console.warn("Failed to parse JSON from OpenAI", content);
+            console.warn(`Failed to parse JSON from ${provider}`, content);
             res.status(200).json({ ...allLegalMoves[0], reason: "Fallback (JSON parse error)" });
             return;
         }
@@ -95,12 +110,12 @@ export default async function handler(req: any, res: any) {
         if (moveData) {
             res.status(200).json({ ...moveData, reason: result.reasoning });
         } else {
-            console.warn("OpenAI returned invalid move format, picking first legal move");
+            console.warn(`${provider} returned invalid move format, picking first legal move`);
             res.status(200).json({ ...allLegalMoves[0], reason: "Fallback move (invalid format)" });
         }
 
     } catch (error) {
-        console.error("OpenAI API Error:", error);
+        console.error(`${provider} API Error:`, error);
         res.status(500).json({ error: "Internal Server Error", details: error });
     }
 }

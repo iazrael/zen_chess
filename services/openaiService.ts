@@ -1,6 +1,6 @@
 import { BoardState, Color, Position } from "../api/common/types";
 
-export const getOpenAIMove = async (board: BoardState, turn: Color): Promise<{ from: Position; to: Position; reason: string } | null> => {
+export const getOpenAIMove = async (board: BoardState, turn: Color, provider: string = 'deepseek'): Promise<{ from: Position; to: Position; reason: string } | null> => {
   try {
     const response = await fetch('/api/openai', {
       method: 'POST',
@@ -9,7 +9,8 @@ export const getOpenAIMove = async (board: BoardState, turn: Color): Promise<{ f
       },
       body: JSON.stringify({
         board,
-        turn
+        turn,
+        provider
       }),
     });
 

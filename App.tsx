@@ -49,6 +49,7 @@ function App() {
 
     // AI State
     const [aiModel, setAiModel] = useState<AIModel>(AIModel.None);
+    const [aiProvider, setAiProvider] = useState<string>('deepseek'); // New state for AI provider
     const [aiThinking, setAiThinking] = useState(false);
     const [aiReasoning, setAiReasoning] = useState<string | null>(null);
     const [minimaxDepth, setMinimaxDepth] = useState(3);
@@ -67,6 +68,7 @@ function App() {
         selectedPos,
         validMoves,
         aiModel,
+        aiProvider, // Add aiProvider to ref
         aiThinking,
         gameStatus,
         isAnimating
@@ -80,6 +82,7 @@ function App() {
             selectedPos,
             validMoves,
             aiModel,
+            aiProvider, // Add aiProvider to ref
             aiThinking,
             gameStatus,
             isAnimating
@@ -206,7 +209,7 @@ function App() {
 
     // Fully stable handler that doesn't change reference when validMoves changes
     const handleSquareClickStable = useCallback(async (pos: Position) => {
-        const { gameStatus, aiThinking, aiModel, turn, board, selectedPos, validMoves, isAnimating } = gameStateRef.current;
+        const { gameStatus, aiThinking, aiModel, aiProvider, turn, board, selectedPos, validMoves, isAnimating } = gameStateRef.current;
 
         if (gameStatus !== GameStatus.Playing || aiThinking || isAnimating) return;
         if (aiModel !== AIModel.None && turn === Color.Black) return;
@@ -270,7 +273,7 @@ function App() {
                         move = await getGeminiMove(board, turn, aiModel);
                         if (move?.reason) setAiReasoning(move.reason);
                     } else if (aiModel === AIModel.OpenAI) {
-                        move = await getOpenAIMove(board, turn);
+                        move = await getOpenAIMove(board, turn, aiProvider); // Pass aiProvider
                         if (move?.reason) setAiReasoning(move.reason);
                     }
                 } catch (e) {
@@ -287,7 +290,7 @@ function App() {
             };
             runAI();
         }
-    }, [turn, aiModel, gameStatus, view, board, minimaxDepth, executeMoveStable, isAnimating]);
+    }, [turn, aiModel, aiProvider, gameStatus, view, board, minimaxDepth, executeMoveStable, isAnimating]); // Add aiProvider to dependencies
 
     const undo = () => {
         if (history.length === 0 || aiThinking) return;
@@ -450,14 +453,6 @@ function App() {
                 >
                     Minimax
                 </button>
-                {/* Gemini Hidden
-                <button
-                    onClick={() => setAiModel(AIModel.GeminiFlash)}
-                    className={`py-2 px-1 text-[10px] md:text-xs rounded border transition-all ${aiModel.includes('gemini') ? 'border-purple-600 bg-purple-600/20 text-purple-400' : 'border-stone-700 bg-stone-800 text-stone-500 hover:bg-stone-700'}`}
-                >
-                    Gemini
-                </button>
-                */}
                 <button
                     onClick={() => setAiModel(AIModel.OpenAI)}
                     className={`py-2 px-1 text-[10px] md:text-xs rounded border transition-all ${aiModel === AIModel.OpenAI ? 'border-green-600 bg-green-600/20 text-green-400' : 'border-stone-700 bg-stone-800 text-stone-500 hover:bg-stone-700'}`}
@@ -465,6 +460,30 @@ function App() {
                     OpenAI
                 </button>
             </div>
+
+            {/* AI Provider Selector - Only show when AI model is OpenAI */}
+            {aiModel === AIModel.OpenAI && (
+                <div className="mb-4 animate-fade-in">
+                    <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs text-stone-400">AI Provider</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1">
+                        {[
+                            { id: 'deepseek', name: 'DeepSeek' },
+                            { id: 'gemini', name: 'Gemini' },
+                            { id: 'qianwen', name: 'Qwen' }
+                        ].map(provider => (
+                            <button
+                                key={provider.id}
+                                onClick={() => setAiProvider(provider.id)}
+                                className={`py-1 px-1 text-[10px] rounded border transition-all ${aiProvider === provider.id ? 'border-green-500 bg-green-500/20 text-green-300' : 'border-stone-700 bg-stone-800/50 text-stone-500 hover:bg-stone-700'}`}
+                            >
+                                {provider.name}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Minimax Difficulty Selector */}
             {aiModel === AIModel.Traditional && (
@@ -599,7 +618,9 @@ function App() {
                             selectedPos={selectedPos}
                             validMoves={validMoves}
                             lastMove={lastMove}
-                            rotateBlack={aiModel === AIModel.None}
+                            boardBgClass={THEME.boardBg}
+                            boardBorderClass={THEME.boardBorder}
+                            gridColor={THEME.gridColor}
                             woodTexture={THEME.woodTexture}
                         />
                     </div>
@@ -610,17 +631,38 @@ function App() {
                     </div>
                 </div>
 
+                {/* Desktop: Right Sidebar (History) - Hidden on mobile */}
+                <div className="hidden lg:flex w-[300px] flex-col gap-4 flex-shrink-0 order-3 sticky top-4">
+                    <div className={`${THEME.panelBg} rounded-xl p-4 border ${THEME.panelBorder} backdrop-blur-sm`}>
+                        <h2 className="text-sm font-bold text-stone-300 flex items-center gap-2 mb-3">
+                            <ScrollText className="w-4 h-4 text-amber-500" /> History
+                        </h2>
+                        <div ref={historyContainerRef} className="h-[400px] overflow-y-auto space-y-1 scrollbar-thin">
+                            {moveList.length === 0 ? (
+                                <div className="text-stone-600 text-center py-10 italic text-xs">No moves yet</div>
+                            ) : (
+                                moveList.map((move, index) => (
+                                    <div key={index} className={`flex items-center gap-3 p-2 rounded text-xs ${index === moveList.length - 1 ? 'bg-amber-900/20 border border-amber-800/50' : 'hover:bg-stone-800'}`}>
+                                        <span className="text-stone-500 w-5 text-right font-mono">{index + 1}.</span>
+                                        <div className={`flex items-center gap-2 ${index % 2 === 0 ? 'text-red-400' : 'text-stone-300'}`}>
+                                            <span>{index % 2 === 0 ? '🔴' : '⚫'}</span>
+                                            <span>{move}</span>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </div>
             </div>
-
-            {HistoryModal()}
         </div>
     );
 
     return (
-        <div className={`min-h-screen font-serif overflow-x-hidden ${THEME.bgApp} ${THEME.textMain}`}>
-            {(gameStatus === GameStatus.RedWin || gameStatus === GameStatus.BlackWin) && <Confetti />}
-
-            {view === 'home' ? HomeView() : GameView()}
+        <div className={`${THEME.bgApp} ${THEME.textMain} min-h-screen`}>
+            {view === 'home' ? <HomeView /> : <GameView />}
+            <HistoryModal />
+            {gameStatus !== GameStatus.Playing && <Confetti />}
         </div>
     );
 }

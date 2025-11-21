@@ -19,7 +19,7 @@ app.use(express.json());
 // Serve static files from the React app build directory (if needed)
 // app.use(express.static(path.join(__dirname, '../dist')));
 
-// API route for OpenAI
+// API route for OpenAI and other providers
 app.post('/api/openai', async (req: Request, res: Response) => {
   // Create mock Vercel request and response objects
   const mockVercelReq = {

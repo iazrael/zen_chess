@@ -1,95 +1,82 @@
-<div align="center">
-  <h1>Zen Xiangqi (中国象棋)</h1>
-  <p>一个精美设计的中国象棋网页应用，支持与AI对弈</p>
-</div>
+# Zen Chess - 中国象棋AI对弈平台
 
-## 简介
-
-Zen Xiangqi 是一个功能完整的中国象棋（Xiangqi）网页应用，具有禅意美学设计和流畅动画。它支持多种AI对手，包括传统的Minimax算法和基于大语言模型的Gemini/OpenAI对手。
+一个基于React和AI的中国象棋游戏，支持多种AI服务提供商。
 
 ## 功能特性
 
-- 🎯 **完整中国象棋规则实现** - 遵循标准象棋规则，包括将军、将死判定
-- 🤖 **多种AI对手** - 支持传统Minimax算法、Gemini和OpenAI模型
-- 🎨 **精美UI设计** - 禅意风格界面，流畅动画效果
-- ⏱️ **游戏计时** - 支持计时功能（10分钟或20分钟）
-- 🔊 **音效系统** - 移动、吃子、胜利等音效反馈
-- 📱 **响应式设计** - 适配桌面和移动设备
-- 🎉 **胜利动画** - 胜利时的彩色纸屑效果
+- 完整的中国象棋规则实现
+- 支持多种AI服务提供商：
+  - OpenAI (GPT系列)
+  - Google Gemini
+  - DeepSeek
+  - 阿里云千问(Qwen)
+- 传统Minimax算法AI
+- 双人对弈模式
+- 游戏计时器
+- 悔棋功能
+- 胜负判定
 
-## 技术栈
+## 环境变量配置
 
-- **前端框架**: React 19 + TypeScript
-- **构建工具**: Vite 6
-- **UI动画**: Framer Motion
-- **图标库**: Lucide React
-- **AI集成**: Google Gemini API, OpenAI API
-- **样式**: Tailwind CSS
-
-## 运行方式
-
-### 本地运行
-
-**前置要求:** Node.js
-
-1. 安装依赖:
-   ```bash
-   npm install
-   ```
-
-2. 配置环境变量:
-   - 创建 `.env.local` 文件
-   - 设置 `GEMINI_API_KEY` 以使用Gemini AI
-   - 设置 `OPENAI_API_KEY` 以使用OpenAI AI
-
-3. 启动开发服务器:
-   ```bash
-   npm run dev
-   ```
-
-4. 在浏览器中访问 `http://localhost:3000`
-
-### 构建部署
+在项目根目录创建 `.env.local` 文件，并添加以下环境变量：
 
 ```bash
-# 构建生产版本
-npm run build
+# OpenAI 配置
+OPENAI_API_KEY=your_openai_api_key
+OPENAI_MODEL=gpt-4o-mini
+OPENAI_API_URL=https://api.openai.com/v1/chat/completions
 
-# 预览构建结果
-npm run preview
+# Gemini 配置
+GEMINI_API_KEY=your_gemini_api_key
+GEMINI_MODEL=gemini-pro
+GEMINI_API_URL=https://generativelanguage.googleapis.com/v1beta/models
+
+# DeepSeek 配置
+DEEPSEEK_API_KEY=your_deepseek_api_key
+DEEPSEEK_MODEL=deepseek-chat
+DEEPSEEK_API_URL=https://api.deepseek.com/v1/chat/completions
+
+# 阿里云千问 配置
+QIANWEN_API_KEY=your_qianwen_api_key
+QIANWEN_MODEL=qwen-plus
+QIANWEN_API_URL=https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation
 ```
 
-## 游戏模式
+## 安装和运行
 
-- **双人对弈**: 两名玩家在同一设备上轮流下棋
-- **挑战AI**: 与AI对弈，可选择不同难度的AI对手
-  - Minimax算法（传统AI）
-  - Gemini Flash/Pro（Google AI）
-  - OpenAI（GPT模型）
-
-## 项目结构
-
-```
-├── api/           # AI服务API接口
-├── components/    # React组件（棋盘、棋子、计时器等）
-├── services/      # AI服务封装
-├── utils/         # 工具函数（规则、音效、算法等）
-├── App.tsx        # 主应用组件
-├── constants.ts   # 游戏常量定义
-├── types.ts       # TypeScript类型定义
-└── ...
+1. 安装依赖：
+```bash
+npm install
+cd server && npm install
 ```
 
-## 开发说明
+2. 配置环境变量（如上所示）
 
-- 棋盘使用9x10格标准中国象棋布局
-- 支持悔棋功能（Ctrl+Z）
-- 支持音量控制
-- 支持无限时和定时模式切换
+3. 启动开发服务器：
+```bash
+# 启动前端
+npm run dev
 
-## 部署
+# 启动后端API服务器（在另一个终端）
+cd server && npm run dev
+```
 
-项目支持多种部署方式：
-- GitHub Pages（通过GitHub Actions自动部署）
-- Vercel（通过vercel.json配置）
-- 任何支持静态文件托管的服务
+## 使用说明
+
+1. 启动游戏后，选择"挑战 AI"模式
+2. 在AI控制台中选择AI模型（OpenAI）
+3. 在AI提供商中选择想要使用的AI服务
+4. 开始对弈！
+
+## API端点
+
+- POST `/api/openai` - AI走子决策接口，支持通过provider参数指定AI服务提供商
+
+## 支持的AI提供商
+
+| 提供商 | provider值 | 环境变量前缀 |
+|--------|------------|-------------|
+| OpenAI | openai | OPENAI_ |
+| Google Gemini | gemini | GEMINI_ |
+| DeepSeek | deepseek | DEEPSEEK_ |
+| 阿里云千问 | qianwen | QIANWEN_ |
