@@ -44,8 +44,6 @@ export enum GameStatus {
 export enum AIModel {
   None = 'none',
   Traditional = 'minimax',
-  GeminiFlash = 'gemini-flash',
-  GeminiPro = 'gemini-pro',
   OpenAI = 'openai',
 }
 
