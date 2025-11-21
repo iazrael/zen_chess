@@ -5,6 +5,42 @@ import { getLegalMoves, applyMove, evaluateBoard, cloneBoard } from "./chessRule
 // Note: In a real app, this should be a Web Worker to avoid freezing UI.
 // For this demo, we keep depth low (2 or 3).
 
+/**
+ * Handler函数，用于处理HTTP请求并返回minimax算法计算的最佳棋步
+ */
+export default async function handler(req: any, res: any) {
+    // CORS headers
+    res.setHeader('Access-Control-Allow-Credentials', true);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+    res.setHeader(
+        'Access-Control-Allow-Headers',
+        'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+    );
+
+    if (req.method === 'OPTIONS') {
+        res.status(200).end();
+        return;
+    }
+
+    if (req.method !== 'POST') {
+        res.status(405).json({ error: 'Method not allowed' });
+        return;
+    }
+
+    const { board, turn, depth = 3 } = req.body;
+
+    try {
+        // 调用minimax算法计算最佳棋步
+        const bestMove = await getBestMoveMinimax(board, turn, depth);
+        
+        res.status(200).json(bestMove);
+    } catch (error) {
+        console.error("Minimax calculation error:", error);
+        res.status(500).json({ error: "Internal Server Error", details: error });
+    }
+}
+
 export const getBestMoveMinimax = async (board: BoardState, turn: Color, depth: number = 3): Promise<{ from: Position; to: Position } | null> => {
   // Delay slightly to let UI render before freezing
   await new Promise(resolve => setTimeout(resolve, 100));
