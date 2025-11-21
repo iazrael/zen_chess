@@ -5,7 +5,7 @@ import { GameTimer } from './components/GameTimer';
 import { INITIAL_BOARD, PIECE_CHARS, COL_NUMERALS, MOVE_DIRECTIONS } from './api/common/constants';
 import { BoardState, Color, Position, Move, GameStatus, AIModel, Piece, PieceType, CaptureAnimationState } from './api/common/types';
 import { getLegalMoves, applyMove, isCheck } from './api/chessRules';
-import { getMinimaxMoveWorker } from './services/minimaxService';
+import { getMinimaxMove } from './services/minimaxService';
 import { getOpenAIMove } from './services/openaiService';
 import { playMoveSound, playCaptureSound, playWinSound, playSelectSound, playInvalidMoveSound, setGlobalVolume } from './utils/sound';
 import { Undo2, RotateCcw, BrainCircuit, Sparkles, ScrollText, Settings, Volume2, VolumeX, X, Users, Bot, ChevronLeft, Home, History as HistoryIcon, Zap } from 'lucide-react';
@@ -326,7 +326,7 @@ function App() {
 
                 try {
                     if (aiModel === AIModel.Traditional) {
-                        move = await getMinimaxMoveWorker(board, turn, minimaxDepth);
+                        move = await getMinimaxMove(board, turn, minimaxDepth);
                     } else if (aiModel === AIModel.OpenAI) {
                         move = await getOpenAIMove(board, turn, aiProvider); // Pass aiProvider
                         if (move?.reason) setAiReasoning(move.reason);

@@ -1,10 +1,11 @@
 import { BoardState, Color, Position, Piece } from './common/types.js';
-import { getLegalMoves, applyMoveEx, undoMove, evaluateBoard, isInCheck, computeHash, REP_TABLE, RESET_REP } from './chessRules.js';
+import { getLegalMoves, getValidMovesForPiece, applyMoveEx, undoMove, evaluateBoard, isInCheck, computeHash, REP_TABLE, RESET_REP } from './chessRules.js';
 
 // 配置参数
 const MAX_DEPTH = 12;          // 迭代加深上限
 const TT_SIZE   = 1 << 20;     // 百万条目，约 16 MB
 const EXTENSION = 1;           // 将军延伸层数
+const Q_MAX     = 4;
 
 // 置换表条目接口
 interface TTEntry {
@@ -22,16 +23,18 @@ let nodes = 0;
 
 // 历史表 - 用于走子顺序优化
 let historyTable: number[][][][] = []; // historyTable[y1][x1][y2][x2]
+let killerMoves: ({ from: Position; to: Position } | null)[][] = [];
 
 // 初始化历史表
 function initHistory() {
   historyTable = Array(10).fill(0).map(() =>
     Array(9).fill(0).map(() =>
       Array(10).fill(0).map(() => Array(9).fill(0))));
+  killerMoves = Array(128).fill(0).map(() => [null, null]);
 }
 
 // 走子排序函数 - 基于吃子价值、将军状态和历史启发
-function sortMoves(moves: { from: Position; to: Position }[], board: BoardState, ttBestMove: { from: Position; to: Position } | null) {
+function sortMoves(moves: { from: Position; to: Position }[], board: BoardState, ttBestMove: { from: Position; to: Position } | null, ply: number) {
   const moveScores: { move: { from: Position; to: Position }; score: number }[] = [];
   
   // 给每个走法打分
@@ -67,16 +70,24 @@ function sortMoves(moves: { from: Position; to: Position }[], board: BoardState,
     
     // 3. 历史启发评分
     score += historyTable[move.from.y][move.from.x][move.to.y][move.to.x];
+    const km = killerMoves[ply];
+    if (km) {
+      if (km[0] && move.from.x === km[0].from.x && move.from.y === km[0].from.y && move.to.x === km[0].to.x && move.to.y === km[0].to.y) {
+        score += 5000;
+      } else if (km[1] && move.from.x === km[1].from.x && move.from.y === km[1].from.y && move.to.x === km[1].to.x && move.to.y === km[1].to.y) {
+        score += 3000;
+      }
+    }
     
     // 4. 将军检查（需要模拟走子后检查）
-    const tempBoard = board.map(row => row.slice());
-    const { captured: capturedPiece } = applyMoveEx(tempBoard, move.from, move.to);
-    const turnColor = board[move.from.y][move.from.x]!.color;
+    const movingPiece = board[move.from.y][move.from.x];
+    const turnColor = movingPiece ? movingPiece.color : Color.Red;
+    const { captured: capturedPiece } = applyMoveEx(board, move.from, move.to);
     const opponentColor = turnColor === Color.Red ? Color.Black : Color.Red;
-    if (isInCheck(tempBoard, opponentColor)) {
+    if (isInCheck(board, opponentColor)) {
       score += 100; // 将军加分
     }
-    undoMove(tempBoard, move.from, move.to, capturedPiece);
+    undoMove(board, move.from, move.to, capturedPiece);
     
     moveScores.push({ move, score });
   }
@@ -219,7 +230,7 @@ function enhancedEvaluateBoard(board: BoardState, playerColor: Color): number {
         for (let ex = 0; ex < board[0].length && !attacked; ex++) {
           const ep = board[ey][ex];
           if (ep && ep.color === enemy) {
-            const mv = getLegalMoves(board, { x: ex, y: ey });
+            const mv = getValidMovesForPiece(board, { x: ex, y: ey });
             if (mv.some(m => m.x === x && m.y === y)) attacked = true;
           }
         }
@@ -228,7 +239,7 @@ function enhancedEvaluateBoard(board: BoardState, playerColor: Color): number {
         for (let fx = 0; fx < board[0].length && !defended; fx++) {
           const fp = board[fy][fx];
           if (fp && fp.color === piece.color) {
-            const mv = getLegalMoves(board, { x: fx, y: fy });
+            const mv = getValidMovesForPiece(board, { x: fx, y: fy });
             if (mv.some(m => m.x === x && m.y === y)) defended = true;
           }
         }
@@ -276,14 +287,26 @@ export async function getBestMoveV2(board: BoardState, aiColor: Color, timeLimit
   const start = performance.now();
   let bestMove = null;
   let bestScore = -Infinity;
+  let prevScore: number | null = null;
   
   // 迭代加深搜索
   for (let depth = 1; depth <= MAX_DEPTH; depth++) {
-    const [score, move] = pvSearch(board, depth, -Infinity, Infinity, true, aiColor, 0);
+    let alpha = -Infinity;
+    let beta = Infinity;
+    if (prevScore !== null) {
+      const window = 50;
+      alpha = prevScore - window;
+      beta = prevScore + window;
+    }
+    let [score, move] = pvSearch(board, depth, alpha, beta, true, aiColor, 0);
+    if (score <= alpha || score >= beta) {
+      [score, move] = pvSearch(board, depth, -Infinity, Infinity, true, aiColor, 0);
+    }
     
     if (move) {
       bestMove = move;
       bestScore = score;
+      prevScore = score;
     }
     
     // 时间控制 - 保留20%余量
@@ -336,12 +359,24 @@ function pvSearch(
   
   // 叶子节点或深度耗尽
   if (depth <= 0) {
-    const qs = quiescenceSearch(board, alpha, beta, isMax, aiColor, ply);
+    const qs = quiescenceSearch(board, alpha, beta, isMax, aiColor, ply, 0);
     return [qs, null];
   }
   
   // 将军延伸
   const inCheck = isInCheck(board, turnColor);
+  if (depth >= 3 && !inCheck) {
+    const R = 2;
+    const nullScore = pvSearch(board, depth - 1 - R, alpha, beta, !isMax, aiColor, ply + 1)[0];
+    if (isMax && nullScore >= beta) {
+      TT[ttIdx] = { depth, flag: 'lower', score: nullScore, best: null };
+      return [nullScore, null];
+    }
+    if (!isMax && nullScore <= alpha) {
+      TT[ttIdx] = { depth, flag: 'upper', score: nullScore, best: null };
+      return [nullScore, null];
+    }
+  }
   const extension = inCheck ? EXTENSION : 0;
   const newDepth = depth + extension;
   
@@ -358,7 +393,7 @@ function pvSearch(
   }
   
   // 走子排序优化
-  const sortedMoves = sortMoves(allMoves, board, ttEntry?.best || null);
+  const sortedMovesWithPly = sortMoves(allMoves, board, ttEntry?.best || null, ply);
   
   let bestMove: { from: Position; to: Position } | null = null;
   let bestScore = isMax ? -Infinity : Infinity;
@@ -366,24 +401,24 @@ function pvSearch(
   let isPVNode = true;
   
   // 遍历所有走法
-  for (const move of sortedMoves) {
+  for (const move of sortedMovesWithPly) {
     // 更新重复局面表
     REP_TABLE.set(hash, repCount + 1);
     
     // 应用走子
+    const wasCapturePre = board[move.to.y][move.to.x] !== null;
     const { captured, hashDelta } = applyMoveEx(board, move.from, move.to);
     
     let score: number;
     
     // PVS搜索 - 第一个走法用全窗口，后续用零窗口
+    const givesCheck = isInCheck(board, turnColor === Color.Red ? Color.Black : Color.Red);
     if (isPVNode) {
-      // 主变搜索 - 全窗口
       [score] = pvSearch(board, newDepth - 1, alpha, beta, !isMax, aiColor, ply + 1);
     } else {
-      // 零窗口搜索
-      [score] = pvSearch(board, newDepth - 1, alpha, alpha + 1, !isMax, aiColor, ply + 1);
-      
-      // 如果零窗口失败，重新用全窗口搜索
+      let reduce = 0;
+      if (newDepth >= 3 && !wasCapturePre && !givesCheck) reduce = 1;
+      [score] = pvSearch(board, newDepth - 1 - reduce, alpha, alpha + 1, !isMax, aiColor, ply + 1);
       if (score > alpha && score < beta) {
         [score] = pvSearch(board, newDepth - 1, score, beta, !isMax, aiColor, ply + 1);
       }
@@ -416,6 +451,13 @@ function pvSearch(
     if (alpha >= beta) {
       // 历史表奖励 - 成功剪枝的走法获得高分
       historyTable[move.from.y][move.from.x][move.to.y][move.to.x] += newDepth * newDepth;
+      if (!wasCapturePre) {
+        const km = killerMoves[ply];
+        if (km) {
+          km[1] = km[0];
+          km[0] = { from: move.from, to: move.to };
+        }
+      }
       break;
     }
     
@@ -424,7 +466,7 @@ function pvSearch(
   }
   
   // 无合法走法 - 将死或困毙
-  if (sortedMoves.length === 0) {
+  if (sortedMovesWithPly.length === 0) {
     // 被将死的情况，根据距离根节点的距离调整分数
     return [isMax ? -100000 + ply : 100000 - ply, null];
   }
@@ -479,10 +521,12 @@ function quiescenceSearch(
   beta: number,
   isMax: boolean,
   aiColor: Color,
-  ply: number
+  ply: number,
+  qd: number
 ): number {
   const turnColor = isMax ? aiColor : (aiColor === Color.Red ? Color.Black : Color.Red);
   const stand = enhancedEvaluateBoard(board, aiColor);
+  if (qd >= Q_MAX) return stand;
   if (isMax) {
     if (stand >= beta) return stand;
     if (stand > alpha) alpha = stand;
@@ -493,7 +537,7 @@ function quiescenceSearch(
   const moves = generateTacticalMoves(board, turnColor);
   for (const move of moves) {
     const { captured } = applyMoveEx(board, move.from, move.to);
-    const score = quiescenceSearch(board, alpha, beta, !isMax, aiColor, ply + 1);
+    const score = quiescenceSearch(board, alpha, beta, !isMax, aiColor, ply + 1, qd + 1);
     undoMove(board, move.from, move.to, captured);
     if (isMax) {
       if (score > alpha) alpha = score;
