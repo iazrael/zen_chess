@@ -197,7 +197,7 @@ function App() {
 
             return applyMove(currentBoard, from, to);
         });
-        
+
         // 重置动画状态，给动画一些时间完成
         setTimeout(() => {
             setIsAnimating(false);
@@ -579,8 +579,8 @@ function App() {
 
                 {/* Desktop: Left Sidebar (Scoreboard + AI) */}
                 <div className="hidden lg:flex w-[350px] flex-col gap-4 flex-shrink-0 sticky top-4 order-1">
-                    <ScoreboardAndControls />
-                    <AIConsole />
+                    {ScoreboardAndControls()}
+                    {AIConsole()}
                 </div>
 
                 {/* Center: Board Area */}
@@ -588,7 +588,7 @@ function App() {
 
                     {/* Mobile: Scoreboard Top */}
                     <div className="lg:hidden w-full max-w-[600px] mb-4">
-                        <ScoreboardAndControls />
+                        {ScoreboardAndControls()}
                     </div>
 
                     {/* Board */}
@@ -606,13 +606,13 @@ function App() {
 
                     {/* Mobile: AI Console Bottom */}
                     <div className="lg:hidden w-full max-w-[600px] mt-4">
-                        <AIConsole />
+                        {AIConsole()}
                     </div>
                 </div>
 
             </div>
 
-            <HistoryModal />
+            {HistoryModal()}
         </div>
     );
 
@@ -620,7 +620,7 @@ function App() {
         <div className={`min-h-screen font-serif overflow-x-hidden ${THEME.bgApp} ${THEME.textMain}`}>
             {(gameStatus === GameStatus.RedWin || gameStatus === GameStatus.BlackWin) && <Confetti />}
 
-            {view === 'home' ? <HomeView /> : <GameView />}
+            {view === 'home' ? HomeView() : GameView()}
         </div>
     );
 }
