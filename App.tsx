@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Board } from './components/Board';
+import { HomeView } from './components/HomeView';
+import { GameView } from './components/GameView';
 import { Confetti } from './components/Confetti';
-import { GameTimer } from './components/GameTimer';
+import { HistoryModal } from './components/HistoryModal';
 import { GameSettingsModal, GameSettings } from './components/GameSettingsModal';
 import { INITIAL_BOARD, PIECE_CHARS, COL_NUMERALS, MOVE_DIRECTIONS } from './api/common/constants';
 import { BoardState, Color, Position, Move, GameStatus, AIModel, Piece, PieceType, CaptureAnimationState } from './api/common/types';
@@ -9,7 +10,7 @@ import { getLegalMoves, applyMove, isCheck } from './api/chessRules';
 import { getMinimaxMove } from './services/minimaxService';
 import { getOpenAIMove } from './services/openaiService';
 import { playMoveSound, playCaptureSound, playWinSound, playSelectSound, playInvalidMoveSound, setGlobalVolume } from './utils/sound';
-import { Undo2, RotateCcw, Sparkles, ScrollText, Settings, Volume2, VolumeX, X, Users, Bot, ChevronLeft, Home, History as HistoryIcon, Zap } from 'lucide-react';
+import { Volume2, VolumeX, X, ScrollText } from 'lucide-react';
 
 // --- Theme Definitions (Simplified for Zen focus) ---
 const THEME = {
@@ -64,8 +65,6 @@ function App() {
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
     const [pendingGameMode, setPendingGameMode] = useState<'pvp' | 'ai'>('pvp');
 
-    const historyContainerRef = useRef<HTMLDivElement>(null);
-
     // State Ref for Stable Event Handlers
     // This allows us to access the latest state in callbacks without updating the callback reference itself
     const gameStateRef = useRef({
@@ -113,16 +112,6 @@ function App() {
         if (gameStatus !== GameStatus.Playing) return;
         setGameStatus(color === Color.Red ? GameStatus.BlackWin : GameStatus.RedWin);
     }, [gameStatus]);
-
-    // Auto-scroll history
-    useEffect(() => {
-        if (historyContainerRef.current && isHistoryOpen) {
-            const { scrollHeight, clientHeight } = historyContainerRef.current;
-            if (scrollHeight > clientHeight) {
-                historyContainerRef.current.scrollTo({ top: scrollHeight, behavior: 'smooth' });
-            }
-        }
-    }, [moveList, isHistoryOpen]);
 
     const startGame = (mode: 'pvp' | 'ai') => {
         setPendingGameMode(mode);
@@ -394,276 +383,69 @@ function App() {
         resetGameLogic();
     };
 
-    const getWinMessage = () => {
-        if (gameStatus === GameStatus.RedWin) {
-            return "Checkmate! Red Wins!"; // Simplified message since we don't track timeout source here easily without more state
-        }
-        if (gameStatus === GameStatus.BlackWin) {
-            return "Checkmate! Black Wins!";
-        }
-        return "";
-    };
-
     // --- Components ---
-
-    const HomeView = () => (
-        <div className="flex flex-col items-center justify-center min-h-screen p-4 animate-fade-in">
-            <h1 className="flex items-center justify-center gap-2 md:gap-4 text-amber-500 mb-2 text-center">
-                <span className="text-6xl md:text-8xl font-bold font-calligraphy drop-shadow-[0_0_15px_rgba(245,158,11,0.5)]">中国</span>
-                <img 
-                    src="./logo.svg" 
-                    alt="中国象棋 Logo" 
-                    className="w-16 h-16 md:w-24 md:h-24 object-contain drop-shadow-[0_0_15px_rgba(245,158,11,0.3)]"
-                />
-                <span className="text-6xl md:text-8xl font-bold font-calligraphy drop-shadow-[0_0_15px_rgba(245,158,11,0.5)]">象棋</span>
-            </h1>
-            <p className="text-stone-400 tracking-[0.5em] uppercase mb-12 text-sm md:text-base"></p>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-3xl">
-                <button
-                    onClick={() => startGame('pvp')}
-                    className="group relative overflow-hidden rounded-2xl bg-stone-800 border border-stone-700 p-8 hover:border-amber-500 transition-all duration-300 hover:shadow-[0_0_30px_rgba(245,158,11,0.15)]"
-                >
-                    <div className="relative z-10 flex flex-col items-center gap-4">
-                        <div className="p-4 rounded-full bg-amber-900/30 text-amber-500 group-hover:scale-110 transition-transform">
-                            <Users className="w-12 h-12" />
-                        </div>
-                        <h2 className="text-2xl font-bold text-stone-200">双人对弈</h2>
-                        <p className="text-stone-500 text-sm">Local PvP</p>
-                    </div>
-                </button>
-
-                <button
-                    onClick={() => startGame('ai')}
-                    className="group relative overflow-hidden rounded-2xl bg-stone-800 border border-stone-700 p-8 hover:border-purple-500 transition-all duration-300 hover:shadow-[0_0_30px_rgba(168,85,247,0.15)]"
-                >
-                    <div className="relative z-10 flex flex-col items-center gap-4">
-                        <div className="p-4 rounded-full bg-purple-900/30 text-purple-500 group-hover:scale-110 transition-transform">
-                            <Bot className="w-12 h-12" />
-                        </div>
-                        <h2 className="text-2xl font-bold text-stone-200">挑战 AI</h2>
-                        <p className="text-stone-500 text-sm">Vs Minimax / Deepseek / OpenAI</p>
-                    </div>
-                </button>
-            </div>
-        </div>
-    );
-
-    // Time and Controls Module (统一时间和控制)
-    const TimeAndControlsModule = () => (
-        <div className={`${THEME.panelBg} rounded-xl p-3 shadow-lg border ${THEME.panelBorder} backdrop-blur-sm w-full`}>
-            {/* Timers and Controls Row */}
-            <div className="flex items-center justify-between gap-2">
-                {/* Red Timer */}
-                <GameTimer
-                    initialTime={initialTime}
-                    isActive={gameStatus === GameStatus.Playing && turn === Color.Red}
-                    onTimeOut={() => handleTimeOut(Color.Red)}
-                    label="Red"
-                    colorClass="text-red-400"
-                    resetKey={gameResetKey}
-                />
-                
-                {/* Controls Section */}
-                <div className="flex items-center justify-center gap-3">
-                    {/* Undo Button */}
-                    <button 
-                        onClick={undo} 
-                        disabled={history.length === 0 || aiThinking || gameStatus !== GameStatus.Playing} 
-                        className="flex flex-col items-center gap-1 px-3 py-2 rounded-lg bg-stone-700/40 hover:bg-stone-700 disabled:opacity-40 disabled:cursor-not-allowed text-stone-300 hover:text-white transition-all duration-200 group"
-                        title="Undo"
-                    >
-                        <Undo2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                        <span className="text-[10px] font-semibold tracking-wider uppercase">悔棋</span>
-                    </button>
-                    {/* Reset Button */}
-                    <button 
-                        onClick={resetGameLogic} 
-                        className="flex flex-col items-center gap-1 px-3 py-2 rounded-lg bg-stone-700/40 hover:bg-stone-700 text-stone-300 hover:text-white transition-all duration-200 group"
-                        title="Reset"
-                    >
-                        <RotateCcw className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                        <span className="text-[10px] font-semibold tracking-wider uppercase">重来</span>
-                    </button>
-                </div>
-                
-                {/* Black Timer */}
-                <GameTimer
-                    initialTime={initialTime}
-                    isActive={gameStatus === GameStatus.Playing && turn === Color.Black}
-                    onTimeOut={() => handleTimeOut(Color.Black)}
-                    label="Black"
-                    colorClass="text-stone-400"
-                    resetKey={gameResetKey}
-                />
-            </div>
-
-            {gameStatus !== GameStatus.Playing && (
-                <div className="p-2 bg-amber-900/30 border border-amber-700 rounded text-center animate-bounce">
-                    <span className="text-sm font-bold text-amber-400">
-                        {getWinMessage()}
-                    </span>
-                </div>
-            )}
-        </div>
-    );
-
-    // AI Thinking Module (独立组件)
-    const AIThinkingModule = () => {
-        if (aiModel === AIModel.None) return null;
-
-        return (
-            <div className={`${THEME.panelBg} rounded-xl p-3 shadow-lg border ${THEME.panelBorder} backdrop-blur-sm w-full`}>
-                {/* 统一容器，避免跳动 */}
-                <div className="min-h-[44px] flex items-center">
-                    {aiThinking ? (
-                        <div className="flex items-center justify-center gap-3 text-amber-500 w-full">
-                            <div className="flex gap-1">
-                                {[0, 150, 300].map((delay) => (
-                                    <div
-                                        key={delay}
-                                        className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce"
-                                        style={{ animationDelay: `${delay}ms` }}
-                                    />
-                                ))}
-                            </div>
-                            <span className="text-xs animate-pulse">AI 思考中...</span>
-                        </div>
-                    ) : aiReasoning ? (
-                        <div className="animate-fade-in w-full">
-                            <div className="flex items-center gap-2 text-purple-400 mb-1">
-                                <Sparkles className="w-3 h-3" />
-                                <span className="text-[10px] font-bold uppercase tracking-wider">分析</span>
-                            </div>
-                            <p className="text-xs text-stone-300 italic leading-relaxed line-clamp-2">
-                                "{aiReasoning}"
-                            </p>
-                        </div>
-                    ) : (
-                        <div className="flex items-center justify-center text-stone-600 text-xs italic w-full">
-                            等待 AI 行动...
-                        </div>
-                    )}
-                </div>
-            </div>
-        );
-    };
-
-    const ScoreboardAndControls = () => (
-        <div className="flex flex-col gap-3 w-full mb-4">
-            <TimeAndControlsModule />
-            <AIThinkingModule />
-        </div>
-    );
-
-    const HistoryModal = () => {
-        if (!isHistoryOpen) return null;
-        return (
-            <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex justify-end animate-fade-in" onClick={() => setIsHistoryOpen(false)}>
-                <div className="w-80 h-full bg-stone-900 border-l border-stone-700 shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
-                    <div className="p-4 border-b border-stone-700 flex items-center justify-between bg-stone-800">
-                        <h3 className="font-bold text-stone-200 flex items-center gap-2">
-                            <ScrollText className="w-4 h-4 text-amber-500" /> Game History
-                        </h3>
-                        <button onClick={() => setIsHistoryOpen(false)} className="text-stone-500 hover:text-white"><X className="w-5 h-5" /></button>
-                    </div>
-                    <div ref={historyContainerRef} className="flex-1 overflow-y-auto p-4 space-y-1 scrollbar-thin">
-                        {moveList.length === 0 ? (
-                            <div className="text-stone-600 text-center py-10 italic">No moves yet</div>
-                        ) : (
-                            moveList.map((move, index) => (
-                                <div key={index} className={`flex items-center gap-3 p-2 rounded text-xs ${index === moveList.length - 1 ? 'bg-amber-900/20 border border-amber-800/50' : 'hover:bg-stone-800'}`}>
-                                    <span className="text-stone-500 w-5 text-right font-mono">{index + 1}.</span>
-                                    <div className={`flex items-center gap-2 ${index % 2 === 0 ? 'text-red-400' : 'text-stone-300'}`}>
-                                        <span>{index % 2 === 0 ? '🔴' : '⚫'}</span>
-                                        <span>{move}</span>
-                                    </div>
-                                </div>
-                            ))
-                        )}
-                    </div>
-                </div>
-            </div>
-        );
-    };
-
-    const GameView = () => (
-        <div className="min-h-screen flex flex-col p-2 md:p-4">
-            {/* Top Navigation Bar */}
-            <div className="flex items-center justify-between mb-4 px-2">
-                <button
-                    onClick={() => setView('home')}
-                    className="flex items-center gap-2 text-stone-400 hover:text-amber-500 transition-colors"
-                >
-                    <ChevronLeft className="w-5 h-5" /> <Home className="w-4 h-4" />
-                </button>
-                <h2 className="text-xl font-calligraphy text-stone-200 tracking-widest">中国象棋</h2>
-                <button
-                    onClick={() => setIsHistoryOpen(true)}
-                    className={`p-2 rounded-full transition-colors ${isHistoryOpen ? 'bg-amber-600 text-white' : 'bg-stone-800 text-stone-400 hover:text-white'}`}
-                >
-                    <HistoryIcon className="w-5 h-5" />
-                </button>
-            </div>
-
-            <div className="flex-1 w-full max-w-6xl mx-auto flex flex-col lg:flex-row gap-4 lg:gap-6 lg:items-start">
-
-                {/* Desktop: Left Sidebar (Time + AI Thinking) */}
-                <div className="hidden lg:flex w-[350px] flex-col gap-3 flex-shrink-0 sticky top-4 order-1">
-                    <TimeAndControlsModule />
-                    <AIThinkingModule />
-                </div>
-
-                {/* Center: Board Area */}
-                <div className="flex-1 flex flex-col items-center order-2">
-
-                {/* Mobile: Time Controls and AI Thinking */}
-                    <div className="lg:hidden w-full max-w-[600px] mb-3 flex flex-col gap-3">
-                        <TimeAndControlsModule />
-                        <AIThinkingModule />
-                    </div>
-
-                    {/* Board */}
-                    <div className="w-full max-w-[600px] lg:max-w-[700px]">
-                        <Board
-                            board={board}
-                            onSquareClick={handleSquareClickStable}
-                            selectedPos={selectedPos}
-                            validMoves={validMoves}
-                            lastMove={lastMove}
-                            boardBgClass={THEME.boardBg}
-                            boardBorderClass={THEME.boardBorder}
-                            gridColor={THEME.gridColor}
-                            woodTexture={THEME.woodTexture}
-                            captureAnimation={captureAnimation}
-                        />
-                    </div>
-
-                </div>
-            </div>
-        </div>
-    );
-
     return (
-        <div className={`${THEME.bgApp} ${THEME.textMain} min-h-screen`}>
-            {view === 'home' ? HomeView() : GameView()}
-            {HistoryModal()}
-            <GameSettingsModal
-                isOpen={isSettingsModalOpen}
-                mode={pendingGameMode}
-                initialSettings={{
-                    gameTime: initialTime,
-                    volume: volume,
-                    algorithmType: 'traditional',
-                    minimaxVersion: minimaxVersion,
-                    difficulty: minimaxDepth as 3 | 4 | 5,
-                    llmProvider: aiProvider
-                }}
-                onClose={() => setIsSettingsModalOpen(false)}
-                onConfirm={handleSettingsConfirm}
-            />
-            {gameStatus !== GameStatus.Playing && <Confetti />}
-        </div>
+      <div className={`${THEME.bgApp} ${THEME.textMain} min-h-screen`}>
+        {view === 'home' ? (
+          <HomeView onStartGame={startGame} />
+        ) : (
+          <GameView
+            // Game State
+            board={board}
+            turn={turn}
+            selectedPos={selectedPos}
+            validMoves={validMoves}
+            lastMove={lastMove}
+            gameStatus={gameStatus}
+            captureAnimation={captureAnimation}
+            historyLength={history.length}
+            
+            // Timer State
+            initialTime={initialTime}
+            gameResetKey={gameResetKey}
+            
+            // AI State
+            aiModel={aiModel}
+            aiThinking={aiThinking}
+            aiReasoning={aiReasoning}
+            
+            // Handlers
+            onSquareClick={handleSquareClickStable}
+            onTimeOut={handleTimeOut}
+            onUndo={undo}
+            onReset={resetGameLogic}
+            onNavigateHome={() => setView('home')}
+            onToggleHistory={() => setIsHistoryOpen(true)}
+            isHistoryOpen={isHistoryOpen}
+            
+            // Theme
+            boardBgClass={THEME.boardBg}
+            boardBorderClass={THEME.boardBorder}
+            gridColor={THEME.gridColor}
+            woodTexture={THEME.woodTexture}
+          />
+        )}
+        <HistoryModal 
+          isOpen={isHistoryOpen} 
+          moveList={moveList} 
+          onClose={() => setIsHistoryOpen(false)} 
+        />
+        <GameSettingsModal
+            isOpen={isSettingsModalOpen}
+            mode={pendingGameMode}
+            initialSettings={{
+                gameTime: initialTime,
+                volume: volume,
+                algorithmType: 'traditional',
+                minimaxVersion: minimaxVersion,
+                difficulty: minimaxDepth as 3 | 4 | 5,
+                llmProvider: aiProvider
+            }}
+            onClose={() => setIsSettingsModalOpen(false)}
+            onConfirm={handleSettingsConfirm}
+        />
+        {gameStatus !== GameStatus.Playing && <Confetti />}
+      </div>
     );
 }
 
