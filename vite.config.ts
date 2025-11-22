@@ -21,7 +21,9 @@ export default defineConfig(({ mode }) => {
     base: './',
     define: {
       // 允许在构建时注入环境变量
-      'process.env.API_BASE_URL': JSON.stringify(env.API_BASE_URL || process.env.API_BASE_URL)
+      'process.env.API_BASE_URL': JSON.stringify(env.API_BASE_URL || process.env.API_BASE_URL),
+      'process.env.GITHUB_PAGES': JSON.stringify(env.GITHUB_PAGES || process.env.GITHUB_PAGES),
+      'process.env.VERCEL': JSON.stringify(env.VERCEL || process.env.VERCEL),
     },
     resolve: {
       alias: {

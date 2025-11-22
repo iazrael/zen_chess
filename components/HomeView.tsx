@@ -6,7 +6,7 @@ interface HomeViewProps {
 }
 
 export const HomeView: React.FC<HomeViewProps> = ({ onStartGame }) => (
-  <div className="flex flex-col items-center justify-center min-h-screen p-4 animate-fade-in">
+  <div className="flex flex-col items-center justify-center min-h-screen animate-fade-in">
     <h1 className="flex items-center justify-center gap-2 md:gap-4 text-amber-500 mb-2 text-center">
       <span className="text-6xl md:text-8xl font-bold font-calligraphy drop-shadow-[0_0_15px_rgba(245,158,11,0.5)]">中国</span>
       <img 
@@ -18,7 +18,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onStartGame }) => (
     </h1>
     <p className="text-stone-400 tracking-[0.5em] uppercase mb-12 text-sm md:text-base"></p>
 
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-3xl">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-3xl p-4">
       <button
         onClick={() => onStartGame('pvp')}
         className="group relative overflow-hidden rounded-2xl bg-stone-800 border border-stone-700 p-8 hover:border-amber-500 transition-all duration-300 hover:shadow-[0_0_30px_rgba(245,158,11,0.15)]"

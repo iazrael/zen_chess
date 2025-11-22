@@ -1,4 +1,4 @@
-import { AI_PROVIDERS } from './common/config.js';
+import { getAIProviders } from './common/config.js';
 
 /**
  * Vercel Serverless Function: 返回可用的 LLM 供应商列表
@@ -24,8 +24,9 @@ export default async function handler(req: any, res: any) {
     }
 
     try {
+        const all_providers = getAIProviders();
         // 从配置中读取所有供应商并检查可用性
-        const providers = Object.entries(AI_PROVIDERS).map(([id, config]) => ({
+        const providers = Object.entries(all_providers).map(([id, config]) => ({
             id,
             name: config.name,
             available: !!config.apiKey && config.apiKey.length > 0

@@ -1,17 +1,16 @@
+import dotenv from 'dotenv';
+// Load environment variables as early as possible
+dotenv.config();
+
 import express, { Request, Response } from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
-import path from 'path';
-
-// Load environment variables
-dotenv.config();
 
 // Import the Vercel function handlers
 import openaiHandler from '../api/openai.js';
 import providersHandler from '../api/providers.js';
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3080;
 
 // Middleware
 app.use(cors());

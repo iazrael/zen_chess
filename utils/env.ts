@@ -15,13 +15,12 @@ export enum RuntimeEnvironment {
  */
 export const getRuntimeEnvironment = (): RuntimeEnvironment => {
   // Vercel 环境检测
-  if (process.env.VERCEL === '1' || process.env.NOW_BUILDER) {
+  if (!!process.env.VERCEL || process.env.NOW_BUILDER) {
     return RuntimeEnvironment.VERCEL;
   }
   
   // GitHub Pages 环境检测
-  if (process.env.GITHUB_PAGES === 'true' || 
-      typeof process.env.PUBLIC_URL === 'string') {
+  if (!!process.env.GITHUB_PAGES) {
     return RuntimeEnvironment.GITHUB_PAGES;
   }
   
