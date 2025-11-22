@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Volume2, VolumeX, Clock, Zap, BrainCircuit, Sparkles } from 'lucide-react';
+import { buildApiUrl, getRuntimeEnvironment, RuntimeEnvironment } from '@/utils/env';
 
 export interface GameSettings {
     gameMode: 'pvp' | 'ai';
@@ -33,12 +34,13 @@ export const GameSettingsModal: React.FC<GameSettingsModalProps> = ({
     onClose,
     onConfirm
 }) => {
+    const runtimeEnv = getRuntimeEnvironment();
     const [gameTime, setGameTime] = useState(initialSettings.gameTime || 600);
     const [volume, setVolume] = useState(initialSettings.volume || 0.5);
     
     // AI specific states
     const [algorithmType, setAlgorithmType] = useState<'traditional' | 'llm'>(
-        initialSettings.algorithmType || 'traditional'
+        (runtimeEnv !== RuntimeEnvironment.GITHUB_PAGES && initialSettings.algorithmType) || 'traditional'
     );
     const [minimaxVersion, setMinimaxVersion] = useState<'v1' | 'v2'>(
         initialSettings.minimaxVersion || 'v2'
@@ -62,7 +64,7 @@ export const GameSettingsModal: React.FC<GameSettingsModalProps> = ({
     const fetchProviders = async () => {
         setLoadingProviders(true);
         try {
-            const response = await fetch('/api/providers');
+            const response = await fetch(buildApiUrl('/api/providers'));
             if (response.ok) {
                 const data = await response.json();
                 setProviders(data.providers || []);
@@ -145,7 +147,7 @@ export const GameSettingsModal: React.FC<GameSettingsModalProps> = ({
                                 <BrainCircuit className="w-4 h-4 text-purple-500" />
                                 算法类型
                             </h3>
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className={runtimeEnv === RuntimeEnvironment.GITHUB_PAGES ? "grid grid-cols-1 gap-2" : "grid grid-cols-2 gap-2"}>
                                 <button
                                     onClick={() => setAlgorithmType('traditional')}
                                     className={`p-3 rounded-lg border transition-all ${
@@ -157,17 +159,19 @@ export const GameSettingsModal: React.FC<GameSettingsModalProps> = ({
                                     <Zap className="w-5 h-5 mx-auto mb-1" />
                                     <div className="text-xs font-medium">传统算法</div>
                                 </button>
-                                <button
-                                    onClick={() => setAlgorithmType('llm')}
-                                    className={`p-3 rounded-lg border transition-all ${
-                                        algorithmType === 'llm'
-                                            ? 'border-green-500 bg-green-500/20 text-green-300'
-                                            : 'border-stone-700 bg-stone-800 text-stone-400 hover:bg-stone-700'
-                                    }`}
-                                >
-                                    <Sparkles className="w-5 h-5 mx-auto mb-1" />
-                                    <div className="text-xs font-medium">大语言模型</div>
-                                </button>
+                                {runtimeEnv !== RuntimeEnvironment.GITHUB_PAGES && (
+                                    <button
+                                        onClick={() => setAlgorithmType('llm')}
+                                        className={`p-3 rounded-lg border transition-all ${
+                                            algorithmType === 'llm'
+                                                ? 'border-green-500 bg-green-500/20 text-green-300'
+                                                : 'border-stone-700 bg-stone-800 text-stone-400 hover:bg-stone-700'
+                                        }`}
+                                    >
+                                        <Sparkles className="w-5 h-5 mx-auto mb-1" />
+                                        <div className="text-xs font-medium">大语言模型</div>
+                                    </button>
+                                )}
                             </div>
 
                             {/* Traditional Algorithm Options */}

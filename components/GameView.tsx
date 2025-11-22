@@ -3,7 +3,7 @@ import { ChevronLeft, Home, History as HistoryIcon } from 'lucide-react';
 import { Board } from './Board';
 import { TimeAndControlsModule } from './TimeAndControlsModule';
 import { AIThinkingModule } from './AIThinkingModule';
-import { BoardState, Color, Position, Move, GameStatus, AIModel, CaptureAnimationState } from '../api/common/types';
+import { BoardState, Color, Position, Move, GameStatus, AIModel, CaptureAnimationState } from '@/api/common/types';
 
 interface GameViewProps {
   // Game State

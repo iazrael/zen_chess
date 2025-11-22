@@ -2,6 +2,7 @@ import { BoardState, Color, Position } from "@/api/common/types";
 
 import { wrap } from 'comlink';
 import { MinimaxWorkerAPI } from "./types";
+import { buildApiUrl } from '@/utils/env';
 // import { getBestMoveMinimax } from "@/api/minimaxV2";
 
 export { getMinimaxMoveWorker as  getMinimaxMove};
@@ -11,7 +12,7 @@ export { getMinimaxMoveWorker as  getMinimaxMove};
  */
 const getMinimaxMoveAPI = async (board: BoardState, turn: Color, depth: number = 3): Promise<{ from: Position; to: Position } | null> => {
     try {
-        const response = await fetch('/api/minimax', {
+        const response = await fetch(buildApiUrl('/api/minimax'), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

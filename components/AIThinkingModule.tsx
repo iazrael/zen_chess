@@ -1,6 +1,6 @@
 import React from 'react';
 import { Sparkles } from 'lucide-react';
-import { AIModel } from '../api/common/types';
+import { AIModel } from '@/api/common/types';
 
 interface AIThinkingModuleProps {
   aiModel: AIModel;

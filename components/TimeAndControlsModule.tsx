@@ -1,7 +1,7 @@
 import React from 'react';
 import { Undo2, RotateCcw } from 'lucide-react';
 import { GameTimer } from './GameTimer';
-import { Color, GameStatus } from '../api/common/types';
+import { Color, GameStatus } from '@/api/common/types';
 
 interface TimeAndControlsModuleProps {
   // Timer props
