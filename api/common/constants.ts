@@ -56,6 +56,7 @@ export const MOVE_DIRECTIONS: Record<string, Record<string, string>> = {
   }
 };
 
+
 export const INITIAL_BOARD: BoardState = (() => {
   const board: BoardState = Array(BOARD_ROWS).fill(null).map(() => Array(BOARD_COLS).fill(null));
 

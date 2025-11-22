@@ -157,7 +157,7 @@ function App() {
         setValidMoves([]);
     };
 
-    const getMoveNotation = (piece: Piece, from: Position, to: Position) => {
+    const getMoveNotation = (piece: Piece, from: Position, to: Position, targetPiece?: Piece | null) => {
         const isRed = piece.color === Color.Red;
 
         // 1. Get Piece Character
@@ -197,7 +197,15 @@ function App() {
         const colStr = COL_NUMERALS[piece.color][fromCol];
         const valStr = COL_NUMERALS[piece.color][val];
 
-        return `${pieceChar}${colStr}${dir}${valStr}`;
+        let notation = `${pieceChar}${colStr}${dir}${valStr}`;
+        
+        // 5. Add captured piece info if applicable
+        if (targetPiece) {
+            const capturedPieceChar = PIECE_CHARS[targetPiece.color][targetPiece.type];
+            notation += `(吃${capturedPieceChar})`;
+        }
+        
+        return notation;
     };
 
     const executeMoveStable = useCallback((from: Position, to: Position) => {
@@ -221,11 +229,11 @@ function App() {
         }
         
         // 记录走法符号
-        const notation = movedPiece ? getMoveNotation(movedPiece, from, to) : "";
+        const notation = movedPiece ? getMoveNotation(movedPiece, from, to, targetPiece) : "";
         if (notation) setMoveList(prev => [...prev, notation]);
         
         // 设置最后一步棋
-        setLastMove({ from, to, captured: targetPiece || undefined });
+        setLastMove({ from, to, captured: targetPiece || undefined, notation });
         setSelectedPos(null);
         setValidMoves([]);
         
@@ -343,7 +351,7 @@ function App() {
                     if (aiModel === AIModel.Traditional) {
                         move = await getMinimaxMove(board, turn, minimaxDepth, minimaxVersion);
                     } else if (aiModel === AIModel.OpenAI) {
-                        move = await getOpenAIMove(board, turn, aiProvider); // Pass aiProvider
+                        move = await getOpenAIMove(board, turn, aiProvider, lastMove);
                         if (move?.reason) setAiReasoning(move.reason);
                     }
                 } catch (e) {
@@ -360,7 +368,7 @@ function App() {
             };
             runAI();
         }
-    }, [turn, aiModel, aiProvider, gameStatus, view, board, minimaxDepth, minimaxVersion, executeMoveStable, isAnimating]);
+    }, [turn, aiModel, aiProvider, gameStatus, view, board, minimaxDepth, minimaxVersion, executeMoveStable, isAnimating, lastMove, moveList]);
 
     const undo = () => {
         if (history.length === 0 || aiThinking) return;

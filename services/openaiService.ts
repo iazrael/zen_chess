@@ -1,7 +1,7 @@
-import { BoardState, Color, Position } from "@/api/common/types";
+import { BoardState, Color, Move, Position } from "@/api/common/types";
 import { buildApiUrl } from '@/utils/env';
 
-export const getOpenAIMove = async (board: BoardState, turn: Color, provider: string = 'deepseek'): Promise<{ from: Position; to: Position; reason: string } | null> => {
+export const getOpenAIMove = async (board: BoardState, turn: Color, provider: string = 'deepseek', lastMove?: Move): Promise<{ from: Position; to: Position; reason: string } | null> => {
   try {
     const response = await fetch(buildApiUrl('/api/openai'), {
       method: 'POST',
@@ -11,7 +11,8 @@ export const getOpenAIMove = async (board: BoardState, turn: Color, provider: st
       body: JSON.stringify({
         board,
         turn,
-        provider
+        provider,
+        lastMove
       }),
     });
 

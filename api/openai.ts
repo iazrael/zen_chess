@@ -1,8 +1,9 @@
 // --- START OF FILE openai.ts ---
 
-import { parseMoveString, boardToFEN, fenToMoveString, getLegalMoves } from "./chessRules.js";
+import { parseMoveString, boardToFEN, fenToMoveString, getLegalMoves, applyMove, getValidMovesForPiece } from "./chessRules.js";
 import { getAIProviderConfig } from "./common/config.js";
 import { BoardState, Color, Position, PieceType } from "./common/types.js";
+import { BOARD_ROWS, BOARD_COLS, PIECE_CHARS, COL_NUMERALS, MOVE_DIRECTIONS } from "./common/constants.js";
 
 // ==================== 核心处理函数 ====================
 
@@ -26,7 +27,7 @@ export default async function handler(req: any, res: any) {
         return;
     }
 
-    const { board, turn, provider = 'openai' } = req.body;
+    const { board, turn, lastMove, provider = 'openai' } = req.body;
     const config = getAIProviderConfig(provider);
 
     if (!config.apiKey) {
@@ -35,25 +36,25 @@ export default async function handler(req: any, res: any) {
     }
 
     try {
-        // 1. 获取包含记谱法的上下文
-        const { fen, allLegalMoves } = getGameContext(board, turn);
+        // 1. 获取包含战术分析的上下文
+        const { fen, allLegalMoves } = getGameContext(board, turn, lastMove);
 
         if (allLegalMoves.length === 0) {
             res.status(200).json({ move: null, message: "No legal moves" });
             return;
         }
 
-        // 2. 构建增强型 Prompt
-        const prompt = constructPrompt(fen, turn, board, allLegalMoves);
+        // 2. 构建三维坐标系 Prompt
+        const prompt = constructPrompt(fen, turn, board, allLegalMoves, lastMove);
 
-        // 3. 调用 AI API
+        // 3. 配置 API 请求
         const body = JSON.stringify({
             model: config.model,
             messages: [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: prompt }
             ],
-            temperature: 0.1, // 降低温度以保证逻辑严密
+            temperature: 0.1, // 极低温度，强制逻辑性
             response_format: { type: "json_object" }
         });
 
@@ -62,8 +63,8 @@ export default async function handler(req: any, res: any) {
             'Authorization': `Bearer ${config.apiKey}`
         };
 
-        console.log(`${provider} Request Payload (Brief):`, `Moves count: ${allLegalMoves.length}`);
-
+        console.log(`${provider} Request: Valid Moves: ${allLegalMoves.length}`);
+        
         const response = await fetch(config.apiUrl, {
             method: 'POST',
             headers: headers,
@@ -94,20 +95,20 @@ export default async function handler(req: any, res: any) {
         // 4. 解析结果
         let result;
         try {
-            // 尝试修复可能存在的 Markdown 格式
             const jsonStr = content.replace(/```json/g, '').replace(/```/g, '').trim();
             result = JSON.parse(jsonStr);
         } catch (e) {
-            // 如果 JSON 解析失败，尝试正则提取
             const match = content.match(/\{[\s\S]*\}/);
             if (match) {
-                try { result = JSON.parse(match[0]); } catch (e2) { }
+                try { result = JSON.parse(match[0]); } catch (e2) {}
             }
         }
 
         if (!result || !result.selectedMove) {
-            console.error("Failed to parse AI response", content);
-            res.status(200).json({ ...allLegalMoves[0], reason: "Fallback: Parse Error" });
+            // 兜底：如果有吃子且安全的步，优先走；否则随机
+            const safeCapture = allLegalMoves.find(m => m.desc.includes("吃") && !m.risk);
+            const fallback = safeCapture || allLegalMoves[0];
+            res.status(200).json({ ...fallback, reason: "Fallback: AI response invalid" });
             return;
         }
 
@@ -125,36 +126,125 @@ export default async function handler(req: any, res: any) {
     }
 }
 
-// ==================== 辅助类型与工具 ====================
+// ==================== 战术分析引擎 ====================
 
 export interface LegalMove {
-    moveStr: string; // "(0,0)->(0,1)"
-    notation: string; // "车1进1"
+    moveStr: string; 
+    notation: string; 
     from: Position;
     to: Position;
-    desc?: string; // "(吃马)"
+    desc: string; // 描述：吃子信息
+    risk: boolean; // 是否有去无回（被反杀）
+    value: number; // 粗略价值排序用
 }
 
-const getPiecename = (type: PieceType) => {
-    const names: Record<string, string> = {
-        'k': '将', 'a': '士', 'b': '象', 'n': '马', 'r': '车', 'c': '炮', 'p': '卒'
-    };
-    return names[type] || '子';
+// 检查某个位置是否被特定颜色的棋子攻击
+const isSquareUnderAttack = (board: BoardState, targetPos: Position, attackerColor: Color): boolean => {
+    for (let y = 0; y < BOARD_ROWS; y++) {
+        for (let x = 0; x < BOARD_COLS; x++) {
+            const p = board[y][x];
+            if (p && p.color === attackerColor) {
+                // 这里直接复用规则里的 ValidMoves
+                // 注意：这只是伪合法移动检查（比如不考虑蹩马腿的复杂情况可能不够完美，但在 nodejs 端复用 chessRules 足够了）
+                const moves = getValidMovesForPiece(board, { x, y });
+                if (moves.some(m => m.x === targetPos.x && m.y === targetPos.y)) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+};
+
+export const getGameContext = (board: BoardState, turn: Color, lastMove: {from: Position, to: Position} | null) => {
+    const fen = boardToFEN(board, turn);
+    const allLegalMoves: LegalMove[] = [];
+    const opponentColor = turn === Color.Red ? Color.Black : Color.Red;
+
+    // 上一步的记谱
+    let lastMoveNotation = "无";
+    if (lastMove) {
+        lastMoveNotation = getXiangqiNotation(board, lastMove.from, lastMove.to, opponentColor); // 注意：棋子已经动过了，这里生成的记谱可能不准，因为 board 已经是动后的。但对于提示词来说，坐标更重要。
+        // 修正：由于 board 已经是 lastMove 后的状态，直接生成记谱会找不到 from 的棋子。
+        // 简单起见，我们只显示坐标，或者在前端传过来 notation。
+        // 这里我们在 prompt 里用坐标描述上一步。
+    }
+
+    for (let y = 0; y < board.length; y++) {
+        for (let x = 0; x < board[0].length; x++) {
+            const p = board[y][x];
+            if (p && p.color === turn) {
+                const moves = getLegalMoves(board, { x, y });
+                
+                moves.forEach(to => {
+                    const from = { x, y };
+                    const target = board[to.y][to.x];
+                    
+                    let desc = "";
+                    let value = 0;
+                    let risk = false;
+
+                    // 1. 吃子分析
+                    if (target) {
+                        const victimName = getPiecename(target.type, target.color);
+                        desc = `(吃${victimName})`;
+                        value += getPieceValue(target.type);
+                    }
+
+                    // 2. 风险分析 (预判)
+                    // 模拟这一步走完
+                    const nextBoard = applyMove(board, from, to);
+                    // 检查到达的位置 `to` 是否在对方火力覆盖下
+                    // 注意：如果是吃子，我们不仅要看是否被攻击，还要看是不是"赚了"。
+                    // 简单逻辑：只要目标点被攻击，就标记风险，交给 Prompt 决定是否值得
+                    if (isSquareUnderAttack(nextBoard, to, opponentColor)) {
+                        risk = true;
+                        desc += " [有根!小心!]";
+                        value -= 5; // 风险惩罚
+                    }
+
+                    const notation = getXiangqiNotation(board, from, to, turn);
+
+                    allLegalMoves.push({
+                        moveStr: fenToMoveString(from, to),
+                        notation,
+                        from,
+                        to,
+                        desc,
+                        risk,
+                        value
+                    });
+                });
+            }
+        }
+    }
+
+    // 排序：高价值且低风险的排前面
+    allLegalMoves.sort((a, b) => b.value - a.value);
+
+    return { fen, allLegalMoves };
+};
+
+const getPieceValue = (type: PieceType): number => {
+    const values = { 'k': 1000, 'r': 90, 'n': 45, 'c': 45, 'b': 20, 'a': 20, 'p': 10 };
+    return values[type] || 0;
+};
+
+const getPiecename = (type: PieceType, color?: Color) => {
+    if (color) {
+        return PIECE_CHARS[color][type] || '子';
+    }
+    // 默认返回黑方棋子名称
+    return PIECE_CHARS[Color.Black][type] || '子';
 }
 
-// 生成中国象棋标准记谱法 (简化版，不处理前后兵/前后车等复杂歧义，但足够LLM理解)
+// 生成中国象棋标准记谱法
 const getXiangqiNotation = (board: BoardState, from: Position, to: Position, color: Color): string => {
     const piece = board[from.y][from.x];
     if (!piece) return "";
 
     // 1. 确定棋子名称 (中文)
-    const nameMap: Record<string, string> = {
-        [Color.Red]: { 'r': '车', 'n': '马', 'b': '相', 'a': '仕', 'k': '帅', 'c': '炮', 'p': '兵' },
-        [Color.Black]: { 'r': '车', 'n': '马', 'b': '象', 'a': '士', 'k': '将', 'c': '炮', 'p': '卒' },
-        // [Color.Red]: { 'r': '俥', 'n': '傌', 'b': '相', 'a': '仕', 'k': '帥', 'c': '炮', 'p': '兵' },
-        // [Color.Black]: { 'r': '車', 'n': '馬', 'b': '象', 'a': '士', 'k': '將', 'c': '砲', 'p': '卒' }
-    }[color] as any;
-    const pieceName = nameMap[piece.type] || "";
+    const pieceName = PIECE_CHARS[color][piece.type] || "";
 
     // 2. 确定列号 (1-9)
     // 红方：从右向左数 (0->9, 8->1) => col = 9 - x
@@ -163,26 +253,19 @@ const getXiangqiNotation = (board: BoardState, from: Position, to: Position, col
     const toColNum = color === Color.Red ? (9 - to.x) : (to.x + 1);
 
     // 数字字符：红方用中文，黑方用阿拉伯
-    const nums = color === Color.Red
-        ? [null, '一', '二', '三', '四', '五', '六', '七', '八', '九']
-        : [null, '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-
-    const fromColStr = nums[fromColNum];
-    const toColStr = nums[toColNum];
+    const fromColStr = COL_NUMERALS[color][fromColNum];
+    const toColStr = COL_NUMERALS[color][toColNum];
 
     // 3. 确定动作 (进、退、平)
     // 红方 y 减小是进，y 增加是退
     // 黑方 y 增加是进，y 减小是退
     let action = '';
     if (from.y === to.y) {
-        action = '平';
+        action = MOVE_DIRECTIONS[color]['Horizontal'];
     } else {
-        const isMovingUp = to.y < from.y; // 物理向上
-        if (color === Color.Red) {
-            action = isMovingUp ? '进' : '退';
-        } else {
-            action = isMovingUp ? '退' : '进';
-        }
+        const isMovingUp = to.y < from.y; 
+        if (color === Color.Red) action = isMovingUp ? MOVE_DIRECTIONS[color]['Forward'] : MOVE_DIRECTIONS[color]['Backward'];
+        else action = isMovingUp ? MOVE_DIRECTIONS[color]['Backward'] : MOVE_DIRECTIONS[color]['Forward'];
     }
 
     // 4. 确定第四个字 (目标列号 或 进退步数)
@@ -191,16 +274,15 @@ const getXiangqiNotation = (board: BoardState, from: Position, to: Position, col
     //   - 如果是平，用"目标列号"
     //   - 如果是进/退，用"步数" (绝对值)
     let lastChar = '';
-
     const isLinearPiece = ['r', 'c', 'p'].includes(piece.type);
 
-    if (action === '平') {
+    if (action === MOVE_DIRECTIONS[color]['Horizontal']) {
         lastChar = toColStr!;
     } else {
         if (isLinearPiece) {
             // 进退步数
             const steps = Math.abs(to.y - from.y);
-            lastChar = color === Color.Red ? nums[steps]! : steps.toString();
+            lastChar = color === Color.Red ? COL_NUMERALS[color][steps]! : steps.toString();
         } else {
             // 斜线子力 (马、象、士、将) 进退也用列号
             lastChar = toColStr!;
@@ -210,129 +292,88 @@ const getXiangqiNotation = (board: BoardState, from: Position, to: Position, col
     return `${pieceName}${fromColStr}${action}${lastChar}`;
 };
 
-export const getGameContext = (board: BoardState, turn: Color) => {
-    const fen = boardToFEN(board, turn);
-    const allLegalMoves: LegalMove[] = [];
-
-    for (let y = 0; y < board.length; y++) {
-        for (let x = 0; x < board[0].length; x++) {
-            const p = board[y][x];
-            if (p && p.color === turn) {
-                const moves = getLegalMoves(board, { x, y });
-                moves.forEach(to => {
-                    const from = { x, y };
-                    const target = board[to.y][to.x];
-
-                    // 生成描述
-                    let desc = "";
-                    if (target) desc = `(吃${getPiecename(target.type)})`;
-
-                    // 生成记谱
-                    const notation = getXiangqiNotation(board, from, to, turn);
-
-                    allLegalMoves.push({
-                        moveStr: fenToMoveString(from, to),
-                        notation,
-                        from,
-                        to,
-                        desc
-                    });
-                });
-            }
-        }
-    }
-
-    // 排序优化：优先把吃子的走法排在前面，方便 AI 第一眼看到战术机会
-    allLegalMoves.sort((a, b) => {
-        const aScore = a.desc ? 1 : 0;
-        const bScore = b.desc ? 1 : 0;
-        return bScore - aScore;
-    });
-
-    return { fen, allLegalMoves };
-};
-
 // ==================== Prompt 构建 ====================
 
-export const systemPrompt = `你是一个中国象棋特级大师 AI (Grandmaster)。
-你的任务是根据当前的盘面 (FEN) 和可选走法列表，选出当前局面下**最优**的一步棋。
+export const systemPrompt = `你是一个中国象棋特级大师。请根据盘面分析选择**唯一最佳**走法。
 
-**思维准则**:
-1. **术语感知**: 请利用列表提供的“中国象棋记谱” (如 "炮二平五") 来理解棋路。这符合你的训练数据直觉。
-2. **绝对不送子**: 除非是弃子战术（必须在推理中说明），否则严禁把子力（车马炮）移动到对方火力范围内。
-3. **根的判断**: 如果你要吃子，必须检查那个子是否有“根”（被保护）。用车换马是亏的，用炮打有根马也是亏的。
-4. **大局观**: 开局抢出车，中局控肋道，残局兵归心。
+**核心原则**:
+1. **拒绝送子**: 列表里标有 "[有根!小心!]" 的走法意味着你吃子后会被反杀（比如用车换马，或者炮打有根马）。除非你能算出这是弃子攻杀，否则**绝对不要走**。
+2. **大局观**:开局抢出车,中局控肋道,残局兵归心。
+3. **关于坐标**: 输入的 X 轴坐标是 0-8。
+   - 你的记谱习惯是 1-9。
+   - 红色方(Red)的 "一" 对应 X=8, "九" 对应 X=0。
+   - 黑色方(Black)的 "1" 对应 X=0, "9" 对应 X=8。
+   - 请务必参考棋盘图上的坐标尺。
 
-**输出要求**:
-- 返回纯 JSON 格式。
-- "selectedMove": 必须完全复制列表中对应的坐标字符串，例如 "(1,2)->(4,2)"。
-- "notation": 用中文表示的中国象棋标准记谱法，例如 "炮二平五"。
-- "reasoning": 用中文简要分析局势和选择这么走的理由理由 (不要超过5句话)。
+**输出格式**:
+JSON 格式: { "selectedMove": "(x1,y1)->(x2,y2)", "notation": "炮二平五", "reasoning": "中文分析对方的意图和你的应对，不要超过3句话" }`;
 
-JSON 示例:
-{
-  "selectedMove": "(1,2)->(4,2)",
-  "notation": "炮二平五",
-  "reasoning": "黑方炮8平5，架起中炮，我要反击中路，执行XXX。"
-}`;
-
-export const constructPrompt = (fen: string, turn: Color, board: BoardState, legalMoves: LegalMove[]) => {
-    // 1. 可视化棋盘
-    let visualBoard = '\n    0 1 2 3 4 5 6 7 8  (X轴)\n';
-    visualBoard += '  +-------------------+\n';
+export const constructPrompt = (fen: string, turn: Color, board: BoardState, legalMoves: LegalMove[], lastMove: any) => {
+    // 1. 构造多维坐标棋盘
+    let visualBoard = '\n';
+    
+    // 顶部坐标尺 (黑方视角)
+    visualBoard += '      1 2 3 4 5 6 7 8 9  (黑方记谱)\n';
+    visualBoard += '      0 1 2 3 4 5 6 7 8  (程序坐标 X轴)\n';
+    visualBoard += '    +-------------------+\n';
 
     for (let y = 0; y < 10; y++) {
-        let rowStr = `${y} | `;
+        let rowStr = ` ${y}  | `;
         for (let x = 0; x < 9; x++) {
             const p = board[y][x];
             if (!p) {
                 rowStr += '· ';
             } else {
-                // 视觉上区分红黑：红字显示为全角，或者带括号，这里直接用传统汉字
-                const char = {
-                    [Color.Red]: { 'r': '俥', 'n': '傌', 'b': '相', 'a': '仕', 'k': '帥', 'c': '炮', 'p': '兵' },
-                    [Color.Black]: { 'r': '車', 'n': '馬', 'b': '象', 'a': '士', 'k': '將', 'c': '砲', 'p': '卒' }
-                }[p.color][p.type];
+                const char = PIECE_CHARS[p.color][p.type];
                 rowStr += char + ' ';
             }
         }
-        // 右侧标注区域
+        rowStr += '|';
+        
+        // 右侧区域标注
         if (y === 0) rowStr += ' [黑方底线]';
-        if (y === 2) rowStr += ' [黑方河岸]';
         if (y === 4) rowStr += ' [楚河]';
         if (y === 5) rowStr += ' [汉界]';
-        if (y === 7) rowStr += ' [红方河岸]';
         if (y === 9) rowStr += ' [红方底线]';
-
+        
         visualBoard += rowStr + '\n';
     }
-    visualBoard += '  +-------------------+\n';
+    visualBoard += '    +-------------------+\n';
+    visualBoard += '      九 八 七 六 五 四 三 二 一  (红方记谱)\n';
 
-    // 2. 构造带记谱的走法列表
-    // 格式: "坐标" : 记谱 [吃子]
-    const movesListStr = legalMoves.map(m =>
-        `"${m.moveStr}": ${m.notation} ${m.desc || ''}`
+    // 2. 上一步信息
+    let lastMoveInfo = "无";
+    if (lastMove) {
+        lastMoveInfo = `${lastMove.notation || '(未知)'} (从 ${lastMove.from.x},${lastMove.from.y}) 到 (${lastMove.to.x},${lastMove.to.y})`;
+    }
+
+    // 3. 走法列表
+    const movesListStr = legalMoves.map(m => 
+        `"${m.moveStr}": ${m.notation} ${m.desc}`
     ).join('\n');
 
-    const turnStr = turn === Color.Red
-        ? "红方 (RED, 棋盘下方 y=9, 记谱用中文数字)"
-        : "黑方 (BLACK, 棋盘上方 y=0, 记谱用阿拉伯数字)";
+    const turnStr = turn === Color.Red 
+        ? "红方 (RED, 下方)" 
+        : "黑方 (BLACK, 上方)";
 
-    return `当前盘面 (FEN): ${fen}
+    return `局势信息:
+- 轮到: ${turnStr}
+- 上一步对手走法: ${lastMoveInfo}
+- 当前FEN: ${fen}
 
-轮到: ${turnStr} 走棋。
-
+可视化棋盘 (请严格对齐坐标):
 ${visualBoard}
 
-合法走法列表 (请从中选择):
+可选走法 (已按推荐度排序):
 -------------------------------------
 ${movesListStr}
 -------------------------------------
 
-**特别警告**:
-1. **不要送子！** 仔细检查你移动到的位置是否被对方棋子攻击。
-2. **看清吃子**: 列表标注了"(吃...)"的走法。吃子前确认是否是“拿大子换小子”（亏损交换）。
-3. 优先考虑符合棋理的走法 (如: "马2进3", "车1平2", "炮2平5" 等)。
+**决策指令**:
+1. 观察棋盘，结合上一步对方的意图（是捉子、还是叫杀？）。
+2. 检查列表中带有 **[有根!小心!]** 标记的走法。这表示目标受保护，吃子会导致你丢子（除非拿小子换大子，否则不要走）。
+3. 选择一步最符合棋理的走法。
+
 
 请以 JSON 格式返回你的选择。`;
 };

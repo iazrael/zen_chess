@@ -32,6 +32,7 @@ export interface Move {
   from: Position;
   to: Position;
   captured?: Piece;
+  notation?: string;
 }
 
 export enum GameStatus {

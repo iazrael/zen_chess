@@ -38,7 +38,7 @@ export const AIThinkingModule: React.FC<AIThinkingModuleProps> = ({
               <Sparkles className="w-3 h-3" />
               <span className="text-[10px] font-bold uppercase tracking-wider">分析</span>
             </div>
-            <p className="text-xs text-stone-300 italic leading-relaxed line-clamp-2">
+            <p className="text-xs text-stone-300 italic leading-relaxed line-clamp-5">
               "{aiReasoning}"
             </p>
           </div>
