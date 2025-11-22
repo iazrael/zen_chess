@@ -449,10 +449,12 @@ function App() {
         </div>
     );
 
-    const ScoreboardAndControls = () => (
-        <div className={`${THEME.panelBg} rounded-xl p-3 shadow-lg border ${THEME.panelBorder} backdrop-blur-sm w-full mb-4`}>
-            {/* Clocks */}
-            <div className="flex items-center justify-between gap-2 mb-3">
+    // Time and Controls Module (统一时间和控制)
+    const TimeAndControlsModule = () => (
+        <div className={`${THEME.panelBg} rounded-xl p-3 shadow-lg border ${THEME.panelBorder} backdrop-blur-sm w-full`}>
+            {/* Timers and Controls Row */}
+            <div className="flex items-center justify-between gap-2">
+                {/* Red Timer */}
                 <GameTimer
                     initialTime={initialTime}
                     isActive={gameStatus === GameStatus.Playing && turn === Color.Red}
@@ -461,9 +463,31 @@ function App() {
                     colorClass="text-red-400"
                     resetKey={gameResetKey}
                 />
-
-                <div className="text-stone-600 font-bold text-sm italic">VS</div>
-
+                
+                {/* Controls Section */}
+                <div className="flex items-center justify-center gap-3">
+                    {/* Undo Button */}
+                    <button 
+                        onClick={undo} 
+                        disabled={history.length === 0 || aiThinking || gameStatus !== GameStatus.Playing} 
+                        className="flex flex-col items-center gap-1 px-3 py-2 rounded-lg bg-stone-700/40 hover:bg-stone-700 disabled:opacity-40 disabled:cursor-not-allowed text-stone-300 hover:text-white transition-all duration-200 group"
+                        title="Undo"
+                    >
+                        <Undo2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                        <span className="text-[10px] font-semibold tracking-wider uppercase">悔棋</span>
+                    </button>
+                    {/* Reset Button */}
+                    <button 
+                        onClick={resetGameLogic} 
+                        className="flex flex-col items-center gap-1 px-3 py-2 rounded-lg bg-stone-700/40 hover:bg-stone-700 text-stone-300 hover:text-white transition-all duration-200 group"
+                        title="Reset"
+                    >
+                        <RotateCcw className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                        <span className="text-[10px] font-semibold tracking-wider uppercase">重来</span>
+                    </button>
+                </div>
+                
+                {/* Black Timer */}
                 <GameTimer
                     initialTime={initialTime}
                     isActive={gameStatus === GameStatus.Playing && turn === Color.Black}
@@ -474,67 +498,61 @@ function App() {
                 />
             </div>
 
-            {/* AI Thinking Info - Show below timers when AI is active */}
-            {aiModel !== AIModel.None && (
-                <div className="mb-3 p-2 bg-stone-900/50 rounded-lg border border-stone-800 min-h-[60px]">
-                    {aiThinking ? (
-                        <div className="flex items-center gap-3 text-amber-500">
-                            <div className="flex gap-1">
-                                <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                                <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                                <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                            </div>
-                            <span className="text-xs animate-pulse">AI is thinking...</span>
-                        </div>
-                    ) : aiReasoning ? (
-                        <div className="animate-fade-in">
-                            <div className="flex items-center gap-2 text-purple-400 mb-1">
-                                <Sparkles className="w-3 h-3" />
-                                <span className="text-[10px] font-bold uppercase tracking-wider">Analysis</span>
-                            </div>
-                            <p className="text-xs text-stone-300 italic leading-relaxed">
-                                "{aiReasoning}"
-                            </p>
-                        </div>
-                    ) : (
-                        <div className="flex items-center justify-center h-full text-stone-600 text-xs italic">
-                            Waiting for AI turn...
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {/* Controls Row */}
-            <div className="flex items-center gap-2 pt-2 border-t border-stone-700">
-                {/* Time Selection */}
-                <div className="flex gap-1 bg-stone-900/40 p-1 rounded-lg mr-auto">
-                    {[0, 600, 1200].map(t => (
-                        <button
-                            key={t}
-                            onClick={() => changeTimeControl(t)}
-                            className={`px-3 py-1 text-[10px] rounded transition-all ${initialTime === t ? 'bg-stone-600 text-stone-100 shadow' : 'text-stone-500 hover:text-stone-300'}`}
-                        >
-                            {t === 0 ? '∞' : `${t / 60}m`}
-                        </button>
-                    ))}
-                </div>
-
-                {/* Actions */}
-                <button onClick={undo} disabled={history.length === 0 || aiThinking || gameStatus !== GameStatus.Playing} className="p-2 hover:bg-stone-700 rounded text-stone-400 hover:text-white disabled:opacity-30" title="Undo">
-                    <Undo2 className="w-4 h-4" />
-                </button>
-                <button onClick={resetGameLogic} className="p-2 hover:bg-stone-700 rounded text-stone-400 hover:text-white" title="Reset">
-                    <RotateCcw className="w-4 h-4" />
-                </button>
-            </div>
-
             {gameStatus !== GameStatus.Playing && (
-                <div className="mt-2 p-2 bg-amber-900/30 border border-amber-700 rounded text-center animate-bounce">
+                <div className="p-2 bg-amber-900/30 border border-amber-700 rounded text-center animate-bounce">
                     <span className="text-sm font-bold text-amber-400">
                         {getWinMessage()}
                     </span>
                 </div>
             )}
+        </div>
+    );
+
+    // AI Thinking Module (独立组件)
+    const AIThinkingModule = () => {
+        if (aiModel === AIModel.None) return null;
+
+        return (
+            <div className={`${THEME.panelBg} rounded-xl p-3 shadow-lg border ${THEME.panelBorder} backdrop-blur-sm w-full`}>
+                {/* 统一容器，避免跳动 */}
+                <div className="min-h-[44px] flex items-center">
+                    {aiThinking ? (
+                        <div className="flex items-center justify-center gap-3 text-amber-500 w-full">
+                            <div className="flex gap-1">
+                                {[0, 150, 300].map((delay) => (
+                                    <div
+                                        key={delay}
+                                        className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce"
+                                        style={{ animationDelay: `${delay}ms` }}
+                                    />
+                                ))}
+                            </div>
+                            <span className="text-xs animate-pulse">AI 思考中...</span>
+                        </div>
+                    ) : aiReasoning ? (
+                        <div className="animate-fade-in w-full">
+                            <div className="flex items-center gap-2 text-purple-400 mb-1">
+                                <Sparkles className="w-3 h-3" />
+                                <span className="text-[10px] font-bold uppercase tracking-wider">分析</span>
+                            </div>
+                            <p className="text-xs text-stone-300 italic leading-relaxed line-clamp-2">
+                                "{aiReasoning}"
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="flex items-center justify-center text-stone-600 text-xs italic w-full">
+                            等待 AI 行动...
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    };
+
+    const ScoreboardAndControls = () => (
+        <div className="flex flex-col gap-3 w-full mb-4">
+            <TimeAndControlsModule />
+            <AIThinkingModule />
         </div>
     );
 
@@ -588,19 +606,21 @@ function App() {
                 </button>
             </div>
 
-            <div className="flex-1 w-full max-w-6xl mx-auto flex flex-col lg:flex-row gap-6 lg:items-start">
+            <div className="flex-1 w-full max-w-6xl mx-auto flex flex-col lg:flex-row gap-4 lg:gap-6 lg:items-start">
 
-                {/* Desktop: Left Sidebar (Scoreboard only) */}
-                <div className="hidden lg:flex w-[350px] flex-col gap-4 flex-shrink-0 sticky top-4 order-1">
-                    {ScoreboardAndControls()}
+                {/* Desktop: Left Sidebar (Time + AI Thinking) */}
+                <div className="hidden lg:flex w-[350px] flex-col gap-3 flex-shrink-0 sticky top-4 order-1">
+                    <TimeAndControlsModule />
+                    <AIThinkingModule />
                 </div>
 
                 {/* Center: Board Area */}
                 <div className="flex-1 flex flex-col items-center order-2">
 
-                    {/* Mobile: Scoreboard Top */}
-                    <div className="lg:hidden w-full max-w-[600px] mb-4">
-                        {ScoreboardAndControls()}
+                {/* Mobile: Time Controls and AI Thinking */}
+                    <div className="lg:hidden w-full max-w-[600px] mb-3 flex flex-col gap-3">
+                        <TimeAndControlsModule />
+                        <AIThinkingModule />
                     </div>
 
                     {/* Board */}
@@ -618,6 +638,7 @@ function App() {
                             captureAnimation={captureAnimation}
                         />
                     </div>
+
                 </div>
             </div>
         </div>
