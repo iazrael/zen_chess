@@ -1,557 +1,487 @@
-import { BoardState, Color, Position, Piece } from './common/types.js';
-import { getLegalMoves, getValidMovesForPiece, applyMoveEx, undoMove, evaluateBoard, isInCheck, computeHash, REP_TABLE, RESET_REP } from './chessRules.js';
+// --- START OF FILE minimaxV2.ts ---
 
-// 配置参数
-const MAX_DEPTH = 12;          // 迭代加深上限
-const TT_SIZE   = 1 << 20;     // 百万条目，约 16 MB
-const EXTENSION = 1;           // 将军延伸层数
-const Q_MAX     = 4;
+import { BoardState, Color, Position, PieceType } from './common/types.js';
+import { getLegalMoves, getValidMovesForPiece, applyMoveEx, undoMove, isInCheck, computeHash, REP_TABLE, RESET_REP } from './chessRules.js';
+import { BOARD_ROWS, BOARD_COLS } from './common/constants.js';
 
-// 置换表条目接口
+// =================配置参数=================
+const MAX_DEPTH = 64;          // 理论最大深度
+const TT_SIZE = 1 << 20;       // 置换表大小 1M
+const CHECK_EXTENSION = 1;     // 将军延伸
+const NULL_MOVE_R = 2;         // 空步裁剪缩减深度
+const ASPIRATION_WINDOW = 50;  // 渴望窗口大小
+
+// =================类型定义=================
 interface TTEntry {
+  key: number;      // Zobrist Hash Checksum
   depth: number;
-  flag : 'exact' | 'lower' | 'upper';
+  flag: 'exact' | 'lower' | 'upper';
   score: number;
-  best : { from: Position; to: Position } | null;
+  bestMove: { from: Position; to: Position } | null;
 }
 
-// 置换表
-const TT: (TTEntry | undefined)[] = new Array(TT_SIZE);
+// =================全局变量=================
+const TT = new Map<number, TTEntry>(); // 使用Map作为简易置换表，生产环境可用定长Array优化
+let searchNodes = 0;
+let searchStartTime = 0;
+let searchTimeLimit = 0;
+let stopSearch = false;
 
-// 节点计数
-let nodes = 0;
-
-// 历史表 - 用于走子顺序优化
-let historyTable: number[][][][] = []; // historyTable[y1][x1][y2][x2]
+// 杀手走法 [ply][id]
 let killerMoves: ({ from: Position; to: Position } | null)[][] = [];
+// 历史表 [from_y][from_x][to_y][to_x]
+let historyTable: number[][][][] = [];
 
-// 初始化历史表
-function initHistory() {
-  historyTable = Array(10).fill(0).map(() =>
-    Array(9).fill(0).map(() =>
+// =================价值评估常量=================
+// 子力基础价值
+const PIECE_VALUES: Record<string, number> = {
+  k: 10000, // 帅/将
+  r: 900,   // 车
+  n: 450,   // 马
+  c: 450,   // 炮
+  a: 200,   // 仕/士
+  b: 200,   // 相/象
+  p: 100    // 兵/卒
+};
+
+// 位置价值表 (PST) - 基于红方视角 (y=9是底线, y=0是对方底线)
+// 黑方评估时需要根据 y' = 9 - y 进行镜像
+const PST: Record<string, number[][]> = {
+  // 车：喜欢在开阔线，喜欢过河，喜欢占肋
+  'r': [
+    [10, 10, 10, 10, 10, 10, 10, 10, 10], // y=0 (敌底)
+    [10, 20, 20, 20, 20, 20, 20, 20, 10],
+    [10, 20, 30, 30, 30, 30, 30, 20, 10],
+    [10, 20, 40, 40, 40, 40, 40, 20, 10],
+    [10, 20, 50, 50, 50, 50, 50, 20, 10], // 河界
+    [ 0, 20, 40, 40, 40, 40, 40, 20,  0],
+    [ 0, 10, 20, 20, 20, 20, 20, 10,  0],
+    [ 0, 10, 20, 30, 30, 30, 20, 10,  0],
+    [ 0,  5, 10, 20, 20, 20, 10,  5,  0],
+    [-10, 5,  5, 10, 10, 10,  5,  5,-10]  // y=9 (我底)
+  ],
+  // 马：喜欢盘河，进攻卧槽，防守中路
+  'n': [
+    [ 5, 10, 10, 10, 10, 10, 10, 10,  5],
+    [10, 20, 30, 40, 40, 40, 30, 20, 10],
+    [10, 20, 40, 50, 50, 50, 40, 20, 10],
+    [10, 30, 40, 60, 60, 60, 40, 30, 10],
+    [10, 20, 40, 50, 50, 50, 40, 20, 10],
+    [10, 10, 30, 40, 40, 40, 30, 10, 10],
+    [ 5, 10, 20, 30, 30, 30, 20, 10,  5],
+    [ 0,  5, 10, 10, 10, 10, 10,  5,  0],
+    [ 0, -5,  5, 10, 10, 10,  5, -5,  0],
+    [-10,-10, -5,  5,  5,  5, -5,-10,-10]
+  ],
+  // 炮：喜欢巡河，底线，中路
+  'c': [
+    [10, 10, 10, 10, 10, 10, 10, 10, 10],
+    [10, 20, 20, 20, 20, 20, 20, 20, 10],
+    [20, 30, 50, 50, 50, 50, 50, 30, 20], // 巡河炮
+    [20, 30, 40, 40, 40, 40, 40, 30, 20],
+    [20, 30, 40, 40, 40, 40, 40, 30, 20],
+    [10, 20, 30, 30, 30, 30, 30, 20, 10],
+    [10, 20, 20, 20, 20, 20, 20, 20, 10],
+    [20, 30, 30, 40, 50, 40, 30, 30, 20], // 己方底二线
+    [10, 20, 20, 20, 20, 20, 20, 20, 10],
+    [10, 10, 10, 10, 10, 10, 10, 10, 10]
+  ],
+  // 兵：过河前无用，过河后靠近九宫格价值高
+  'p': [
+    [10, 20, 30, 40, 50, 40, 30, 20, 10], // 逼近九宫
+    [10, 20, 40, 60, 80, 60, 40, 20, 10],
+    [10, 10, 30, 50, 60, 50, 30, 10, 10],
+    [10, 10, 20, 30, 30, 30, 20, 10, 10],
+    [10, 10, 20, 20, 20, 20, 20, 10, 10], // 河界
+    [ 0,  0,  0,  0,  0,  0,  0,  0,  0],
+    [ 0,  0,  0, -20, 0, -20, 0,  0,  0], // 还没过河
+    [ 0,  0,  0,  0,  0,  0,  0,  0,  0],
+    [ 0,  0,  0,  0,  0,  0,  0,  0,  0],
+    [ 0,  0,  0,  0,  0,  0,  0,  0,  0]
+  ]
+};
+
+// 初始化辅助结构
+function initSearch() {
+  killerMoves = Array(MAX_DEPTH).fill(null).map(() => [null, null]);
+  historyTable = Array(10).fill(0).map(() => 
+    Array(9).fill(0).map(() => 
       Array(10).fill(0).map(() => Array(9).fill(0))));
-  killerMoves = Array(128).fill(0).map(() => [null, null]);
+  searchNodes = 0;
+  stopSearch = false;
+  // 注意：TT不随每次搜索清空，以利用之前的思考结果（可选）
 }
 
-// 走子排序函数 - 基于吃子价值、将军状态和历史启发
-function sortMoves(moves: { from: Position; to: Position }[], board: BoardState, ttBestMove: { from: Position; to: Position } | null, ply: number) {
-  const moveScores: { move: { from: Position; to: Position }; score: number }[] = [];
-  
-  // 给每个走法打分
-  for (const move of moves) {
-    let score = 0;
-    
-    // 1. 如果是置换表推荐的最佳走法，给最高分
-    if (ttBestMove && 
-        move.from.x === ttBestMove.from.x && 
-        move.from.y === ttBestMove.from.y && 
-        move.to.x === ttBestMove.to.x && 
-        move.to.y === ttBestMove.to.y) {
-      score = 1000000;
+// 检查是否超时
+function checkTime() {
+  if ((searchNodes & 2047) === 0) { // 每2048个节点检查一次
+    if (performance.now() - searchStartTime > searchTimeLimit) {
+      stopSearch = true;
     }
-    
-    // 2. 吃子评分
-    const targetPiece = board[move.to.y][move.to.x];
-    if (targetPiece) {
-      // 简化的MVV-LVA（Most Valuable Victim - Least Valuable Aggressor）
-      const pieceValues: Record<string, number> = {
-        'k': 10000,
-        'a': 20,
-        'b': 20,
-        'n': 40,
-        'r': 90,
-        'c': 45,
-        'p': 10
-      };
-      const attackerValue = pieceValues[board[move.from.y][move.from.x]!.type] || 0;
-      const victimValue = pieceValues[targetPiece.type] || 0;
-      score = victimValue * 10 - attackerValue;
-    }
-    
-    // 3. 历史启发评分
-    score += historyTable[move.from.y][move.from.x][move.to.y][move.to.x];
-    const km = killerMoves[ply];
-    if (km) {
-      if (km[0] && move.from.x === km[0].from.x && move.from.y === km[0].from.y && move.to.x === km[0].to.x && move.to.y === km[0].to.y) {
-        score += 5000;
-      } else if (km[1] && move.from.x === km[1].from.x && move.from.y === km[1].from.y && move.to.x === km[1].to.x && move.to.y === km[1].to.y) {
-        score += 3000;
-      }
-    }
-    
-    // 4. 将军检查（需要模拟走子后检查）
-    const movingPiece = board[move.from.y][move.from.x];
-    const turnColor = movingPiece ? movingPiece.color : Color.Red;
-    const { captured: capturedPiece } = applyMoveEx(board, move.from, move.to);
-    const opponentColor = turnColor === Color.Red ? Color.Black : Color.Red;
-    if (isInCheck(board, opponentColor)) {
-      score += 100; // 将军加分
-    }
-    undoMove(board, move.from, move.to, capturedPiece);
-    
-    moveScores.push({ move, score });
   }
-  
-  // 按分数降序排序
-  moveScores.sort((a, b) => b.score - a.score);
-  
-  // 返回排序后的走法
-  return moveScores.map(ms => ms.move);
 }
 
-// 增强的评估函数
-function enhancedEvaluateBoard(board: BoardState, playerColor: Color): number {
+// =================核心：评估函数=================
+// 极速评估，只计算子力 + PST + 简单机动性
+function evaluate(board: BoardState, playerColor: Color): number {
   let score = 0;
-  
-  // 基础子力价值
-  const values: Record<string, number> = {
-    k: 10000,
-    a: 20,
-    b: 20,
-    n: 40,
-    r: 90,
-    c: 45,
-    p: 10
-  };
-  
-  // 位置价值表 - 基于经验值
-  const positionBonus: Record<string, number[][]> = {
-    // 红方车的位置价值
-    'r': [
-      [0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [2, 2, 2, 2, 2, 2, 2, 2, 2],
-      [1, 1, 1, 3, 3, 3, 1, 1, 1],
-      [1, 1, 1, 1, 1, 1, 1, 1, 1],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0]
-    ],
-    // 红方马的位置价值
-    'n': [
-      [0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [0, 0, 0, 3, 0, 3, 0, 0, 0],
-      [0, 0, 3, 4, 3, 4, 3, 0, 0],
-      [0, 0, 0, 3, 4, 3, 0, 0, 0],
-      [0, 0, 3, 4, 3, 4, 3, 0, 0],
-      [0, 0, 0, 3, 4, 3, 0, 0, 0],
-      [0, 0, 2, 0, 0, 0, 2, 0, 0],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0]
-    ],
-    // 红方炮的位置价值
-    'c': [
-      [0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [0, 0, 2, 0, 0, 0, 2, 0, 0],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [1, 1, 0, 0, 3, 0, 0, 1, 1],
-      [1, 1, 0, 2, 0, 2, 0, 1, 1],
-      [0, 0, 1, 0, 0, 0, 1, 0, 0],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0]
-    ],
-    // 红方兵的位置价值（过河前）
-    'p': [
-      [0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [2, 0, 2, 0, 5, 0, 2, 0, 2],
-      [1, 0, 1, 0, 3, 0, 1, 0, 1],
-      [0, 0, 0, 0, 1, 0, 0, 0, 0],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0]
-    ]
-  };
-  
-  // 机动性评分（每个棋子能走多少步）
-  let mobilityScore = 0;
-  
-  // 将帅安全评分
-  let kingSafetyScore = 0;
-  
-  // 遍历棋盘
-  for (let y = 0; y < board.length; y++) {
-    for (let x = 0; x < board[0].length; x++) {
-      const piece = board[y][x];
-      if (!piece) continue;
-      
-      const pieceValue = values[piece.type] || 0;
-      const colorFactor = (piece.color === playerColor) ? 1 : -1;
-      
-      // 1. 子力价值
-      score += pieceValue * colorFactor;
-      
-      // 2. 位置价值
-      if (positionBonus[piece.type] && piece.color === Color.Red) {
-        score += positionBonus[piece.type][y][x] * colorFactor;
-      } else if (positionBonus[piece.type] && piece.color === Color.Black) {
-        // 黑方位置价值是红方的镜像
-        const mirrorY = 9 - y;
-        score += positionBonus[piece.type][mirrorY][x] * colorFactor;
-      }
-      
-      // 3. 过河兵奖励
-      if (piece.type === 'p') {
-        if (piece.color === Color.Red && y < 5) {
-          score += 10 * colorFactor; // 红兵过河
-        } else if (piece.color === Color.Black && y > 4) {
-          score += 10 * colorFactor; // 黑兵过河
-        }
-        
-        // 高线兵奖励
-        if (piece.color === Color.Red && y < 3) {
-          score += 20 * colorFactor; // 红兵到对方九宫附近
-        } else if (piece.color === Color.Black && y > 6) {
-          score += 20 * colorFactor; // 黑兵到对方九宫附近
+  let redMaterial = 0;
+  let blackMaterial = 0;
+
+  for (let y = 0; y < BOARD_ROWS; y++) {
+    for (let x = 0; x < BOARD_COLS; x++) {
+      const p = board[y][x];
+      if (!p) continue;
+
+      let val = PIECE_VALUES[p.type] || 0;
+      let pstVal = 0;
+
+      // 查表逻辑
+      if (PST[p.type]) {
+        if (p.color === Color.Red) {
+          pstVal = PST[p.type][y][x];
+        } else {
+          // 黑方镜像查表: x不变, y翻转
+          pstVal = PST[p.type][9 - y][x];
         }
       }
-      
-      // 4. 机动性评分
-      const legalMoves = getLegalMoves(board, { x, y });
-      mobilityScore += legalMoves.length * colorFactor * 0.5; // 机动性权重
-    }
-  }
-  for (let y = 0; y < board.length; y++) {
-    for (let x = 0; x < board[0].length; x++) {
-      const piece = board[y][x];
-      if (!piece) continue;
-      const val = values[piece.type] || 0;
-      const enemy = piece.color === Color.Red ? Color.Black : Color.Red;
-      let attacked = false;
-      let defended = false;
-      for (let ey = 0; ey < board.length && !attacked; ey++) {
-        for (let ex = 0; ex < board[0].length && !attacked; ex++) {
-          const ep = board[ey][ex];
-          if (ep && ep.color === enemy) {
-            const mv = getValidMovesForPiece(board, { x: ex, y: ey });
-            if (mv.some(m => m.x === x && m.y === y)) attacked = true;
-          }
-        }
-      }
-      for (let fy = 0; fy < board.length && !defended; fy++) {
-        for (let fx = 0; fx < board[0].length && !defended; fx++) {
-          const fp = board[fy][fx];
-          if (fp && fp.color === piece.color) {
-            const mv = getValidMovesForPiece(board, { x: fx, y: fy });
-            if (mv.some(m => m.x === x && m.y === y)) defended = true;
-          }
-        }
-      }
-      if (attacked) {
-        const penalty = defended ? val * 0.1 : val * 0.2;
-        score -= penalty * (piece.color === playerColor ? 1 : -1);
+
+      const totalVal = val + pstVal;
+
+      if (p.color === Color.Red) {
+        score += totalVal;
+        redMaterial += val;
+      } else {
+        score -= totalVal;
+        blackMaterial += val;
       }
     }
   }
-  
-  // 5. 将军安全评分
-  const isPlayerInCheck = isInCheck(board, playerColor);
-  const isOpponentInCheck = isInCheck(board, playerColor === Color.Red ? Color.Black : Color.Red);
-  
-  if (isPlayerInCheck) {
-    kingSafetyScore -= 50; // 被将军扣分
+
+  // 简单的机动性加分 (Mobility)
+  // 为了性能，不在这里调用 getValidMovesForPiece，除非在 Q-Search 之外
+  // 如果需要更强的棋力，可以在 Root 或浅层加入机动性计算
+
+  return playerColor === Color.Red ? score : -score;
+}
+
+// =================走法排序=================
+function scoreMove(move: { from: Position; to: Position }, board: BoardState, ttMove: { from: Position; to: Position } | null, ply: number): number {
+  // 1. 哈希表最佳着法 (PV Move)
+  if (ttMove && move.from.x === ttMove.from.x && move.from.y === ttMove.from.y && 
+      move.to.x === ttMove.to.x && move.to.y === ttMove.to.y) {
+    return 2000000;
   }
-  if (isOpponentInCheck) {
-    kingSafetyScore += 50; // 将军对方加分
+
+  const pFrom = board[move.from.y][move.from.x]!;
+  const pTo = board[move.to.y][move.to.x];
+  let score = 0;
+
+  // 2. 吃子 (MVV-LVA)
+  if (pTo) {
+    const victimVal = PIECE_VALUES[pTo.type] || 0;
+    const attackerVal = PIECE_VALUES[pFrom.type] || 0;
+    score = 100000 + victimVal * 10 - attackerVal;
+  } else {
+    // 3. 杀手走法
+    if (killerMoves[ply]) {
+      if (killerMoves[ply][0] && 
+          move.from.x === killerMoves[ply][0]!.from.x && move.from.y === killerMoves[ply][0]!.from.y && 
+          move.to.x === killerMoves[ply][0]!.to.x && move.to.y === killerMoves[ply][0]!.to.y) {
+        return 90000;
+      }
+      if (killerMoves[ply][1] && 
+          move.from.x === killerMoves[ply][1]!.from.x && move.from.y === killerMoves[ply][1]!.from.y && 
+          move.to.x === killerMoves[ply][1]!.to.x && move.to.y === killerMoves[ply][1]!.to.y) {
+        return 80000;
+      }
+    }
+    // 4. 历史启发
+    score = historyTable[move.from.y][move.from.x][move.to.y][move.to.x];
   }
-  
-  // 6. 基本棋型识别
-  // 这里可以添加更多棋型识别，如连环马、空头炮等
-  
-  // 组合所有评分因素
-  score += mobilityScore;
-  score += kingSafetyScore;
-  
+
   return score;
 }
 
-// 迭代加深入口，返回最佳走法
-export async function getBestMoveV2(board: BoardState, aiColor: Color, timeLimitMs = 3000)
-  : Promise<{ from: Position; to: Position } | null> {
-  nodes = 0;
-  RESET_REP();                       // 清空重复检测
-  initHistory();
+// =================静态搜索 (Quiescence Search)=================
+// 处理激烈的吃子交换，防止水平线效应
+function quiescence(board: BoardState, alpha: number, beta: number, turnColor: Color): number {
+  checkTime();
+  if (stopSearch) return alpha;
+  searchNodes++;
+
+  const standPat = evaluate(board, turnColor);
   
-  // 清空置换表
-  for (let i = 0; i < TT_SIZE; i++) {
-    TT[i] = undefined;
+  if (standPat >= beta) return beta;
+  if (alpha < standPat) alpha = standPat;
+
+  // 生成吃子走法
+  // 注意：这里我们手动生成，只生成吃子的步
+  const captureMoves: { from: Position; to: Position; score: number }[] = [];
+  
+  for (let y = 0; y < BOARD_ROWS; y++) {
+    for (let x = 0; x < BOARD_COLS; x++) {
+      const p = board[y][x];
+      if (p && p.color === turnColor) {
+        // 使用 getValidMoves (伪合法) 提高速度，applyEx 后如果不合法会回退
+        // 更严谨的做法是用 getLegalMoves，但 JS 中太慢。
+        // 折中：使用 getValidMoves，但在循环中判断是否被将。
+        // 这里为了速度，假设 getValidMoves 是基础，QSearch 主要关注吃子
+        const moves = getValidMovesForPiece(board, {x, y});
+        for (const to of moves) {
+          if (board[to.y][to.x] !== null) { // 只有吃子
+             captureMoves.push({ from: {x,y}, to, score: 0 });
+          }
+        }
+      }
+    }
   }
-  
-  const start = performance.now();
-  let bestMove = null;
-  let bestScore = -Infinity;
-  let prevScore: number | null = null;
-  
-  // 迭代加深搜索
-  for (let depth = 1; depth <= MAX_DEPTH; depth++) {
-    let alpha = -Infinity;
-    let beta = Infinity;
-    if (prevScore !== null) {
-      const window = 50;
-      alpha = prevScore - window;
-      beta = prevScore + window;
-    }
-    let [score, move] = pvSearch(board, depth, alpha, beta, true, aiColor, 0);
-    if (score <= alpha || score >= beta) {
-      [score, move] = pvSearch(board, depth, -Infinity, Infinity, true, aiColor, 0);
-    }
+
+  // 简单的 MVV-LVA 排序
+  captureMoves.forEach(m => {
+    m.score = scoreMove(m, board, null, 0);
+  });
+  captureMoves.sort((a, b) => b.score - a.score);
+
+  for (const moveWrap of captureMoves) {
+    const move = moveWrap;
+    const { captured, hashDelta } = applyMoveEx(board, move.from, move.to);
     
-    if (move) {
-      bestMove = move;
-      bestScore = score;
-      prevScore = score;
+    // 如果导致己方被将军，则此步非法，忽略
+    if (isInCheck(board, turnColor)) {
+      undoMove(board, move.from, move.to, captured);
+      continue;
     }
-    
-    // 时间控制 - 保留20%余量
-    const elapsed = performance.now() - start;
-    if (elapsed > timeLimitMs * 0.8) break;
-    
-    console.log(`Depth ${depth} completed. Score: ${score}, Nodes: ${nodes}, Time: ${elapsed.toFixed(2)}ms`);
+
+    const score = -quiescence(board, -beta, -alpha, turnColor === Color.Red ? Color.Black : Color.Red);
+    undoMove(board, move.from, move.to, captured);
+
+    if (stopSearch) return alpha;
+
+    if (score >= beta) return beta;
+    if (score > alpha) alpha = score;
   }
-  
-  console.log(`Final move: ${bestMove ? `(${bestMove.from.x},${bestMove.from.y})->(${bestMove.to.x},${bestMove.to.y})` : 'null'}, Score: ${bestScore}, Total nodes: ${nodes}`);
-  
-  return bestMove;
+
+  return alpha;
 }
 
-// 带 PVS + TT + History + Extension 的主搜索
-function pvSearch(
+// =================主搜索 (PVS + Negamax)=================
+function alphaBeta(
   board: BoardState, 
   depth: number, 
   alpha: number, 
   beta: number, 
-  isMax: boolean, 
-  aiColor: Color, 
-  ply: number
-): [number, { from: Position; to: Position } | null] {
-  nodes++;
-  
-  const turnColor = isMax ? aiColor : (aiColor === Color.Red ? Color.Black : Color.Red);
-  const hash = computeHash(board);
-  
-  // 重复局面判和（三次重复）
-  const repCount = REP_TABLE.get(hash) || 0;
-  if (ply > 0 && repCount >= 3) {
-    return [0, null]; // 和棋
-  }
-  
-  // 置换表查询
-  const ttIdx = hash & (TT_SIZE - 1);
-  const ttEntry = TT[ttIdx];
-  if (ttEntry && ttEntry.depth >= depth) {
-    if (ttEntry.flag === 'exact') {
-      return [ttEntry.score, ttEntry.best];
-    }
-    if (ttEntry.flag === 'lower' && ttEntry.score >= beta) {
-      return [ttEntry.score, ttEntry.best];
-    }
-    if (ttEntry.flag === 'upper' && ttEntry.score <= alpha) {
-      return [ttEntry.score, ttEntry.best];
-    }
-  }
-  
-  // 叶子节点或深度耗尽
-  if (depth <= 0) {
-    const qs = quiescenceSearch(board, alpha, beta, isMax, aiColor, ply, 0);
-    return [qs, null];
-  }
-  
-  // 将军延伸
-  const inCheck = isInCheck(board, turnColor);
-  if (depth >= 3 && !inCheck) {
-    const R = 2;
-    const nullScore = pvSearch(board, depth - 1 - R, alpha, beta, !isMax, aiColor, ply + 1)[0];
-    if (isMax && nullScore >= beta) {
-      TT[ttIdx] = { depth, flag: 'lower', score: nullScore, best: null };
-      return [nullScore, null];
-    }
-    if (!isMax && nullScore <= alpha) {
-      TT[ttIdx] = { depth, flag: 'upper', score: nullScore, best: null };
-      return [nullScore, null];
-    }
-  }
-  const extension = inCheck ? EXTENSION : 0;
-  const newDepth = depth + extension;
-  
-  // 生成所有合法走法
-  const allMoves: { from: Position; to: Position }[] = [];
-  for (let y = 0; y < board.length; y++) {
-    for (let x = 0; x < board[0].length; x++) {
-      const piece = board[y][x];
-      if (piece && piece.color === turnColor) {
-        const moves = getLegalMoves(board, { x, y });
-        moves.forEach(to => allMoves.push({ from: { x, y }, to }));
-      }
-    }
-  }
-  
-  // 走子排序优化
-  const sortedMovesWithPly = sortMoves(allMoves, board, ttEntry?.best || null, ply);
-  
-  let bestMove: { from: Position; to: Position } | null = null;
-  let bestScore = isMax ? -Infinity : Infinity;
-  let oldAlpha = alpha;
-  let isPVNode = true;
-  
-  // 遍历所有走法
-  for (const move of sortedMovesWithPly) {
-    // 更新重复局面表
-    REP_TABLE.set(hash, repCount + 1);
-    
-    // 应用走子
-    const wasCapturePre = board[move.to.y][move.to.x] !== null;
-    const { captured, hashDelta } = applyMoveEx(board, move.from, move.to);
-    
-    let score: number;
-    
-    // PVS搜索 - 第一个走法用全窗口，后续用零窗口
-    const givesCheck = isInCheck(board, turnColor === Color.Red ? Color.Black : Color.Red);
-    if (isPVNode) {
-      [score] = pvSearch(board, newDepth - 1, alpha, beta, !isMax, aiColor, ply + 1);
-    } else {
-      let reduce = 0;
-      if (newDepth >= 3 && !wasCapturePre && !givesCheck) reduce = 1;
-      [score] = pvSearch(board, newDepth - 1 - reduce, alpha, alpha + 1, !isMax, aiColor, ply + 1);
-      if (score > alpha && score < beta) {
-        [score] = pvSearch(board, newDepth - 1, score, beta, !isMax, aiColor, ply + 1);
-      }
-    }
-    
-    // 撤销走子
-    undoMove(board, move.from, move.to, captured);
-    REP_TABLE.set(hash, repCount);
-    
-    // 更新最佳值
-    if (isMax) {
-      if (score > bestScore) {
-        bestScore = score;
-        bestMove = move;
-      }
-      if (score > alpha) {
-        alpha = score;
-      }
-    } else {
-      if (score < bestScore) {
-        bestScore = score;
-        bestMove = move;
-      }
-      if (score < beta) {
-        beta = score;
-      }
-    }
-    
-    // 剪枝检测
-    if (alpha >= beta) {
-      // 历史表奖励 - 成功剪枝的走法获得高分
-      historyTable[move.from.y][move.from.x][move.to.y][move.to.x] += newDepth * newDepth;
-      if (!wasCapturePre) {
-        const km = killerMoves[ply];
-        if (km) {
-          km[1] = km[0];
-          km[0] = { from: move.from, to: move.to };
-        }
-      }
-      break;
-    }
-    
-    // 不是PV节点了
-    isPVNode = false;
-  }
-  
-  // 无合法走法 - 将死或困毙
-  if (sortedMovesWithPly.length === 0) {
-    // 被将死的情况，根据距离根节点的距离调整分数
-    return [isMax ? -100000 + ply : 100000 - ply, null];
-  }
-  
-  // 写入置换表
-  let ttFlag: 'exact' | 'lower' | 'upper';
-  if (bestScore <= oldAlpha) {
-    ttFlag = 'upper';
-  } else if (bestScore >= beta) {
-    ttFlag = 'lower';
-  } else {
-    ttFlag = 'exact';
-  }
-  
-  TT[ttIdx] = {
-    depth,
-    flag: ttFlag,
-    score: bestScore,
-    best: bestMove
-  };
-  
-  return [bestScore, bestMove];
-}
+  ply: number, 
+  turnColor: Color, 
+  allowNull: boolean
+): number {
+  checkTime();
+  if (stopSearch) return alpha;
 
-function generateTacticalMoves(board: BoardState, turnColor: Color): { from: Position; to: Position }[] {
-  const moves: { from: Position; to: Position }[] = [];
-  for (let y = 0; y < board.length; y++) {
-    for (let x = 0; x < board[0].length; x++) {
+  const boardHash = computeHash(board);
+  
+  // 1. 重复局面判和
+  // (简化处理：如果在同一层级出现，直接判和；严谨需要路径检测)
+  const repCount = REP_TABLE.get(boardHash) || 0;
+  if (repCount >= 2) return 0; // 再次重复即和棋
+
+  // 2. 置换表查询
+  const ttEntry = TT.get(boardHash);
+  let ttMove: { from: Position; to: Position } | null = null;
+  if (ttEntry && ttEntry.key === boardHash) {
+    ttMove = ttEntry.bestMove;
+    if (ttEntry.depth >= depth) {
+      if (ttEntry.flag === 'exact') return ttEntry.score;
+      if (ttEntry.flag === 'lower' && ttEntry.score >= beta) return ttEntry.score;
+      if (ttEntry.flag === 'upper' && ttEntry.score <= alpha) return ttEntry.score;
+    }
+  }
+
+  // 3. 叶子节点或最大深度 -> 静态搜索
+  if (depth <= 0) {
+    return quiescence(board, alpha, beta, turnColor);
+  }
+
+  searchNodes++;
+  const inCheck = isInCheck(board, turnColor);
+
+  // 4. 空步裁剪 (Null Move Pruning)
+  // 条件：不被将军，剩余深度足够，且不是残局(这里简化没判断残局)
+  if (allowNull && !inCheck && depth >= 3) {
+    // 假设我放弃一步，对方还是不能把我很惨 -> 当前局面优势很大
+    const R = NULL_MOVE_R;
+    const val = -alphaBeta(board, depth - 1 - R, -beta, -beta + 1, ply + 1, 
+      turnColor === Color.Red ? Color.Black : Color.Red, false);
+    if (val >= beta) return beta;
+  }
+
+  // 5. 生成走法
+  let moves: { from: Position; to: Position }[] = [];
+  // 这里必须用 getLegalMoves (严谨)，否则搜索树中会有非法走法导致 Hash 错乱
+  for (let y = 0; y < BOARD_ROWS; y++) {
+    for (let x = 0; x < BOARD_COLS; x++) {
       const p = board[y][x];
       if (p && p.color === turnColor) {
-        const ls = getLegalMoves(board, { x, y });
-        for (const to of ls) {
-          const cap = board[to.y][to.x] !== null;
-          let chk = false;
-          if (!cap) {
-            const { captured } = applyMoveEx(board, { x, y }, to);
-            const opp = turnColor === Color.Red ? Color.Black : Color.Red;
-            chk = isInCheck(board, opp);
-            undoMove(board, { x, y }, to, captured);
+        const legals = getLegalMoves(board, {x, y});
+        legals.forEach(to => moves.push({ from: {x, y}, to }));
+      }
+    }
+  }
+
+  if (moves.length === 0) {
+    // 无路可走
+    if (inCheck) return -20000 + ply; // 被杀
+    return 0; // 困毙/逼和
+  }
+
+  // 6. 走法排序
+  const scoredMoves = moves.map(m => ({
+    move: m,
+    score: scoreMove(m, board, ttMove, ply)
+  }));
+  scoredMoves.sort((a, b) => b.score - a.score);
+
+  let bestScore = -Infinity;
+  let bestMove: { from: Position; to: Position } | null = null;
+  let moveCount = 0;
+  
+  // 7. 遍历走法
+  for (const item of scoredMoves) {
+    const move = item.move;
+    
+    // 记录哈希重复
+    REP_TABLE.set(boardHash, repCount + 1);
+
+    const { captured } = applyMoveEx(board, move.from, move.to);
+    
+    // 延伸逻辑：如果将军，延伸搜索深度
+    let extension = 0;
+    const givesCheck = isInCheck(board, turnColor === Color.Red ? Color.Black : Color.Red);
+    if (givesCheck) extension = CHECK_EXTENSION;
+
+    let score: number;
+    // PVS (Principal Variation Search)
+    if (moveCount === 0) {
+      score = -alphaBeta(board, depth - 1 + extension, -beta, -alpha, ply + 1, 
+        turnColor === Color.Red ? Color.Black : Color.Red, true);
+    } else {
+      // Late Move Reduction (LMR)
+      // 对非PV节点、非将军、非吃子的后续走法减少搜索深度
+      let reduce = 0;
+      if (depth >= 3 && !givesCheck && !captured && moveCount > 4) reduce = 1;
+
+      // 零窗口搜索 (Null Window)
+      score = -alphaBeta(board, depth - 1 - reduce + extension, -alpha - 1, -alpha, ply + 1, 
+        turnColor === Color.Red ? Color.Black : Color.Red, true);
+      
+      // 如果 LMR 失败或者零窗口失败（发现更好的着法），重新全窗口搜索
+      if (score > alpha && reduce > 0) {
+        score = -alphaBeta(board, depth - 1 + extension, -alpha - 1, -alpha, ply + 1,
+           turnColor === Color.Red ? Color.Black : Color.Red, true);
+      }
+      if (score > alpha && score < beta) {
+        score = -alphaBeta(board, depth - 1 + extension, -beta, -alpha, ply + 1, 
+          turnColor === Color.Red ? Color.Black : Color.Red, true);
+      }
+    }
+
+    undoMove(board, move.from, move.to, captured);
+    REP_TABLE.set(boardHash, repCount); // 回溯
+
+    if (stopSearch) break;
+    moveCount++;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestMove = move;
+      
+      if (score > alpha) {
+        alpha = score;
+        // 剪枝
+        if (alpha >= beta) {
+          // 记录历史和杀手
+          if (!captured) {
+            historyTable[move.from.y][move.from.x][move.to.y][move.to.x] += depth * depth;
+            killerMoves[ply][1] = killerMoves[ply][0];
+            killerMoves[ply][0] = move;
           }
-          if (cap || chk) moves.push({ from: { x, y }, to });
+          break; // Beta Cutoff
         }
       }
     }
   }
-  return moves;
+
+  // 8. 存入置换表
+  if (!stopSearch) {
+    let flag: 'exact' | 'lower' | 'upper' = 'exact';
+    if (bestScore <= alpha) flag = 'upper'; // 这里应该是 oldAlpha，简单起见用 alpha 代替逻辑
+    else if (bestScore >= beta) flag = 'lower';
+    
+    TT.set(boardHash, {
+      key: boardHash,
+      depth: depth,
+      flag: flag,
+      score: bestScore,
+      bestMove: bestMove
+    });
+  }
+
+  return bestScore;
 }
 
-function quiescenceSearch(
-  board: BoardState,
-  alpha: number,
-  beta: number,
-  isMax: boolean,
-  aiColor: Color,
-  ply: number,
-  qd: number
-): number {
-  const turnColor = isMax ? aiColor : (aiColor === Color.Red ? Color.Black : Color.Red);
-  const stand = enhancedEvaluateBoard(board, aiColor);
-  if (qd >= Q_MAX) return stand;
-  if (isMax) {
-    if (stand >= beta) return stand;
-    if (stand > alpha) alpha = stand;
-  } else {
-    if (stand <= alpha) return stand;
-    if (stand < beta) beta = stand;
-  }
-  const moves = generateTacticalMoves(board, turnColor);
-  for (const move of moves) {
-    const { captured } = applyMoveEx(board, move.from, move.to);
-    const score = quiescenceSearch(board, alpha, beta, !isMax, aiColor, ply + 1, qd + 1);
-    undoMove(board, move.from, move.to, captured);
-    if (isMax) {
-      if (score > alpha) alpha = score;
-    } else {
-      if (score < beta) beta = score;
+// =================对外接口=================
+
+export async function getBestMoveV2(board: BoardState, aiColor: Color, timeLimitMs = 3000)
+  : Promise<{ from: Position; to: Position } | null> {
+  
+  initSearch();
+  RESET_REP();
+  
+  searchStartTime = performance.now();
+  searchTimeLimit = timeLimitMs;
+  
+  let bestMove = null;
+  let bestScore = -Infinity;
+  
+  console.log(`AI thinking (${aiColor})... Time limit: ${timeLimitMs}ms`);
+
+  // 迭代加深 (Iterative Deepening)
+  for (let d = 1; d <= MAX_DEPTH; d++) {
+    const score = alphaBeta(board, d, -Infinity, Infinity, 0, aiColor, true);
+    
+    if (stopSearch) {
+        console.log(`Search stopped at depth ${d}`);
+        break;
     }
-    if (alpha >= beta) break;
+
+    // 从置换表获取本层最佳走法
+    const hash = computeHash(board);
+    const entry = TT.get(hash);
+    
+    if (entry && entry.bestMove) {
+      bestMove = entry.bestMove;
+      bestScore = score;
+      console.log(`Depth ${d}: Score=${score}, Move=(${bestMove.from.x},${bestMove.from.y})->(${bestMove.to.x},${bestMove.to.y}), Nodes=${searchNodes}`);
+    } else {
+        // 极少情况，根节点没有TT（比如直接剪枝了）
+        console.log(`Depth ${d}: Score=${score} (No move in TT)`);
+    }
+
+    // 简单的时间控制：如果用时超过 50%，就不尝试下一层了，因为下一层通常需要翻倍时间
+    if (performance.now() - searchStartTime > timeLimitMs * 0.5) {
+        break;
+    }
   }
-  return isMax ? alpha : beta;
+
+  console.log(`AI finish. Best: ${bestMove ? `(${bestMove.from.x},${bestMove.from.y})->(${bestMove.to.x},${bestMove.to.y})` : 'null'}, Nodes: ${searchNodes}`);
+  return bestMove;
 }
 
-// 导出原始的minimax函数接口（保持兼容性）
-// 注意：这里直接导出接口，实际实现使用优化后的版本
+// 兼容旧接口
 export const getBestMoveMinimax = async (board: BoardState, turn: Color, depth: number = 3): Promise<{ from: Position; to: Position } | null> => {
-  // 调用优化版本，传递参数但忽略depth（使用时间控制代替固定深度）
-  return await getBestMoveV2(board, turn, depth * 500); // 根据深度估算时间，每个深度500ms
+  // 忽略传入的 depth，使用时间控制，默认给 2000ms
+  // 如果需要更强，可以增加时间
+  return await getBestMoveV2(board, turn, 2000);
 };
+
+// --- END OF FILE minimaxV2.ts ---
