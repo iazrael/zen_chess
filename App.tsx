@@ -2,13 +2,14 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Board } from './components/Board';
 import { Confetti } from './components/Confetti';
 import { GameTimer } from './components/GameTimer';
+import { GameSettingsModal, GameSettings } from './components/GameSettingsModal';
 import { INITIAL_BOARD, PIECE_CHARS, COL_NUMERALS, MOVE_DIRECTIONS } from './api/common/constants';
 import { BoardState, Color, Position, Move, GameStatus, AIModel, Piece, PieceType, CaptureAnimationState } from './api/common/types';
 import { getLegalMoves, applyMove, isCheck } from './api/chessRules';
 import { getMinimaxMove } from './services/minimaxService';
 import { getOpenAIMove } from './services/openaiService';
 import { playMoveSound, playCaptureSound, playWinSound, playSelectSound, playInvalidMoveSound, setGlobalVolume } from './utils/sound';
-import { Undo2, RotateCcw, BrainCircuit, Sparkles, ScrollText, Settings, Volume2, VolumeX, X, Users, Bot, ChevronLeft, Home, History as HistoryIcon, Zap } from 'lucide-react';
+import { Undo2, RotateCcw, Sparkles, ScrollText, Settings, Volume2, VolumeX, X, Users, Bot, ChevronLeft, Home, History as HistoryIcon, Zap } from 'lucide-react';
 
 // --- Theme Definitions (Simplified for Zen focus) ---
 const THEME = {
@@ -54,10 +55,14 @@ function App() {
     const [aiThinking, setAiThinking] = useState(false);
     const [aiReasoning, setAiReasoning] = useState<string | null>(null);
     const [minimaxDepth, setMinimaxDepth] = useState(4);
+    const [minimaxVersion, setMinimaxVersion] = useState<'v1' | 'v2'>('v2');
+    const [gameMode, setGameMode] = useState<'pvp' | 'ai'>('pvp');
 
     // UI State
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const [volume, setVolume] = useState(0.5);
+    const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+    const [pendingGameMode, setPendingGameMode] = useState<'pvp' | 'ai'>('pvp');
 
     const historyContainerRef = useRef<HTMLDivElement>(null);
 
@@ -120,12 +125,33 @@ function App() {
     }, [moveList, isHistoryOpen]);
 
     const startGame = (mode: 'pvp' | 'ai') => {
+        setPendingGameMode(mode);
+        setIsSettingsModalOpen(true);
+    };
+
+    const handleSettingsConfirm = (settings: GameSettings) => {
         resetGameLogic();
-        if (mode === 'pvp') {
+        
+        // Apply settings
+        setGameMode(settings.gameMode);
+        setInitialTime(settings.gameTime);
+        setVolume(settings.volume);
+        
+        if (settings.gameMode === 'pvp') {
             setAiModel(AIModel.None);
         } else {
-            setAiModel(AIModel.Traditional); // Default to Minimax
+            // AI mode
+            if (settings.algorithmType === 'traditional') {
+                setAiModel(AIModel.Traditional);
+                setMinimaxVersion(settings.minimaxVersion || 'v2');
+                setMinimaxDepth(settings.difficulty || 4);
+            } else {
+                setAiModel(AIModel.OpenAI);
+                setAiProvider(settings.llmProvider || 'deepseek');
+            }
         }
+        
+        setIsSettingsModalOpen(false);
         setView('game');
     };
 
@@ -326,7 +352,7 @@ function App() {
 
                 try {
                     if (aiModel === AIModel.Traditional) {
-                        move = await getMinimaxMove(board, turn, minimaxDepth);
+                        move = await getMinimaxMove(board, turn, minimaxDepth, minimaxVersion);
                     } else if (aiModel === AIModel.OpenAI) {
                         move = await getOpenAIMove(board, turn, aiProvider); // Pass aiProvider
                         if (move?.reason) setAiReasoning(move.reason);
@@ -345,7 +371,7 @@ function App() {
             };
             runAI();
         }
-    }, [turn, aiModel, aiProvider, gameStatus, view, board, minimaxDepth, executeMoveStable, isAnimating]); // Add aiProvider to dependencies
+    }, [turn, aiModel, aiProvider, gameStatus, view, board, minimaxDepth, minimaxVersion, executeMoveStable, isAnimating]);
 
     const undo = () => {
         if (history.length === 0 || aiThinking) return;
@@ -420,18 +446,6 @@ function App() {
                     </div>
                 </button>
             </div>
-
-            {/* Volume Control on Home */}
-            <div className="mt-12 flex items-center gap-4 bg-stone-800/50 px-6 py-3 rounded-full">
-                <button onClick={() => setVolume(volume > 0 ? 0 : 0.5)} className="text-stone-400 hover:text-white">
-                    {volume === 0 ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-                </button>
-                <input
-                    type="range" min="0" max="1" step="0.1" value={volume}
-                    onChange={e => setVolume(parseFloat(e.target.value))}
-                    className="w-32 h-1.5 bg-stone-600 rounded-lg appearance-none cursor-pointer accent-amber-500"
-                />
-            </div>
         </div>
     );
 
@@ -459,6 +473,36 @@ function App() {
                     resetKey={gameResetKey}
                 />
             </div>
+
+            {/* AI Thinking Info - Show below timers when AI is active */}
+            {aiModel !== AIModel.None && (
+                <div className="mb-3 p-2 bg-stone-900/50 rounded-lg border border-stone-800 min-h-[60px]">
+                    {aiThinking ? (
+                        <div className="flex items-center gap-3 text-amber-500">
+                            <div className="flex gap-1">
+                                <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                                <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                                <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                            </div>
+                            <span className="text-xs animate-pulse">AI is thinking...</span>
+                        </div>
+                    ) : aiReasoning ? (
+                        <div className="animate-fade-in">
+                            <div className="flex items-center gap-2 text-purple-400 mb-1">
+                                <Sparkles className="w-3 h-3" />
+                                <span className="text-[10px] font-bold uppercase tracking-wider">Analysis</span>
+                            </div>
+                            <p className="text-xs text-stone-300 italic leading-relaxed">
+                                "{aiReasoning}"
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="flex items-center justify-center h-full text-stone-600 text-xs italic">
+                            Waiting for AI turn...
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Controls Row */}
             <div className="flex items-center gap-2 pt-2 border-t border-stone-700">
@@ -491,121 +535,6 @@ function App() {
                     </span>
                 </div>
             )}
-        </div>
-    );
-
-    const AIConsole = () => (
-        <div className={`${THEME.panelBg} rounded-xl p-4 border ${THEME.panelBorder} backdrop-blur-sm w-full h-full flex flex-col min-h-[200px]`}>
-            <h2 className="text-sm font-bold text-stone-300 flex items-center gap-2 mb-3">
-                <BrainCircuit className="w-4 h-4 text-purple-500" /> AI Console
-            </h2>
-
-            {/* Model Selector - Updated grid to 4 cols or auto flow */}
-            <div className="grid grid-cols-2 gap-2 mb-4">
-                <button
-                    onClick={() => setAiModel(AIModel.None)}
-                    className={`py-2 px-1 text-[10px] md:text-xs rounded border transition-all ${aiModel === AIModel.None ? 'border-amber-600 bg-amber-600/20 text-amber-500' : 'border-stone-700 bg-stone-800 text-stone-500 hover:bg-stone-700'}`}
-                >
-                    PvP Mode
-                </button>
-                <button
-                    onClick={() => setAiModel(AIModel.Traditional)}
-                    className={`py-2 px-1 text-[10px] md:text-xs rounded border transition-all ${aiModel === AIModel.Traditional ? 'border-blue-600 bg-blue-600/20 text-blue-400' : 'border-stone-700 bg-stone-800 text-stone-500 hover:bg-stone-700'}`}
-                >
-                    Minimax
-                </button>
-                <button
-                    onClick={() => setAiModel(AIModel.OpenAI)}
-                    className={`py-2 px-1 text-[10px] md:text-xs rounded border transition-all ${aiModel === AIModel.OpenAI ? 'border-green-600 bg-green-600/20 text-green-400' : 'border-stone-700 bg-stone-800 text-stone-500 hover:bg-stone-700'}`}
-                >
-                    OpenAI
-                </button>
-            </div>
-
-            {/* AI Provider Selector - Only show when AI model is OpenAI */}
-            {aiModel === AIModel.OpenAI && (
-                <div className="mb-4 animate-fade-in">
-                    <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs text-stone-400">AI Provider</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-1">
-                        {[
-                            { id: 'deepseek', name: 'DeepSeek' },
-                            { id: 'gemini', name: 'Gemini' },
-                            { id: 'qianwen', name: 'Qwen' }
-                        ].map(provider => (
-                            <button
-                                key={provider.id}
-                                onClick={() => setAiProvider(provider.id)}
-                                className={`py-1 px-1 text-[10px] rounded border transition-all ${aiProvider === provider.id ? 'border-green-500 bg-green-500/20 text-green-300' : 'border-stone-700 bg-stone-800/50 text-stone-500 hover:bg-stone-700'}`}
-                            >
-                                {provider.name}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            {/* Minimax Difficulty Selector */}
-            {aiModel === AIModel.Traditional && (
-                <div className="mb-4 animate-fade-in">
-                    <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs text-stone-400">Difficulty (Depth)</span>
-                        <span className="text-xs text-blue-400 font-bold">{minimaxDepth}</span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-1">
-                        {[
-                            { name: 'Easy', depth: 3 },
-                            { name: 'Med', depth: 4 },
-                            { name: 'Hard', depth: 5 }
-                        ].map(({ name, depth }) => (
-                            <button
-                                key={depth}
-                                onClick={() => setMinimaxDepth(depth)}
-                                className={`py-1 px-1 text-[10px] rounded border transition-all ${minimaxDepth === depth ? 'border-blue-500 bg-blue-500/20 text-blue-300' : 'border-stone-700 bg-stone-800/50 text-stone-500 hover:bg-stone-700'}`}
-                            >
-                                {name}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            {/* Content Area */}
-            <div className="flex-1 bg-stone-900/50 rounded-lg p-3 overflow-y-auto min-h-[100px] border border-stone-800">
-                {aiModel === AIModel.None ? (
-                    <div className="h-full flex items-center justify-center text-stone-600 text-xs italic text-center">
-                        Player vs Player Mode Active.<br />Select an AI to enable assistance.
-                    </div>
-                ) : (
-                    <>
-                        {aiThinking ? (
-                            <div className="flex items-center gap-3 text-amber-500">
-                                <div className="flex gap-1">
-                                    <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                                    <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                                    <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                                </div>
-                                <span className="text-xs animate-pulse">AI is thinking...</span>
-                            </div>
-                        ) : aiReasoning ? (
-                            <div className="animate-fade-in">
-                                <div className="flex items-center gap-2 text-purple-400 mb-2">
-                                    <Sparkles className="w-3 h-3" />
-                                    <span className="text-[10px] font-bold uppercase tracking-wider">Analysis</span>
-                                </div>
-                                <p className="text-xs text-stone-300 italic leading-relaxed">
-                                    "{aiReasoning}"
-                                </p>
-                            </div>
-                        ) : (
-                            <div className="h-full flex items-center justify-center text-stone-600 text-xs italic">
-                                Waiting for AI turn...
-                            </div>
-                        )}
-                    </>
-                )}
-            </div>
         </div>
     );
 
@@ -661,10 +590,9 @@ function App() {
 
             <div className="flex-1 w-full max-w-6xl mx-auto flex flex-col lg:flex-row gap-6 lg:items-start">
 
-                {/* Desktop: Left Sidebar (Scoreboard + AI) */}
+                {/* Desktop: Left Sidebar (Scoreboard only) */}
                 <div className="hidden lg:flex w-[350px] flex-col gap-4 flex-shrink-0 sticky top-4 order-1">
                     {ScoreboardAndControls()}
-                    {AIConsole()}
                 </div>
 
                 {/* Center: Board Area */}
@@ -690,11 +618,6 @@ function App() {
                             captureAnimation={captureAnimation}
                         />
                     </div>
-
-                    {/* Mobile: AI Console Bottom */}
-                    <div className="lg:hidden w-full max-w-[600px] mt-4">
-                        {AIConsole()}
-                    </div>
                 </div>
             </div>
         </div>
@@ -704,6 +627,20 @@ function App() {
         <div className={`${THEME.bgApp} ${THEME.textMain} min-h-screen`}>
             {view === 'home' ? HomeView() : GameView()}
             {HistoryModal()}
+            <GameSettingsModal
+                isOpen={isSettingsModalOpen}
+                mode={pendingGameMode}
+                initialSettings={{
+                    gameTime: initialTime,
+                    volume: volume,
+                    algorithmType: 'traditional',
+                    minimaxVersion: minimaxVersion,
+                    difficulty: minimaxDepth as 3 | 4 | 5,
+                    llmProvider: aiProvider
+                }}
+                onClose={() => setIsSettingsModalOpen(false)}
+                onConfirm={handleSettingsConfirm}
+            />
             {gameStatus !== GameStatus.Playing && <Confetti />}
         </div>
     );

@@ -6,8 +6,9 @@ import path from 'path';
 // Load environment variables
 dotenv.config();
 
-// Import the Vercel function handler
+// Import the Vercel function handlers
 import openaiHandler from '../api/openai.js';
+import providersHandler from '../api/providers.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -21,38 +22,21 @@ app.use(express.json());
 
 // API route for OpenAI and other providers
 app.post('/api/openai', async (req: Request, res: Response) => {
-  // Create mock Vercel request and response objects
-  const mockVercelReq = {
-    method: req.method,
-    body: req.body,
-    headers: req.headers
-  };
-
-  // Mock Vercel response object with methods that call Express response methods
-  const mockVercelRes = {
-    setHeader: (name: string, value: string) => {
-      res.setHeader(name, value);
-      return mockVercelRes;
-    },
-    status: (code: number) => {
-      res.status(code);
-      return mockVercelRes;
-    },
-    json: (data: any) => {
-      res.json(data);
-      return mockVercelRes;
-    },
-    end: () => {
-      res.end();
-      return mockVercelRes;
-    }
-  };
-
   // Call the Vercel function handler
   try {
-    await openaiHandler(mockVercelReq, mockVercelRes);
+    await openaiHandler(req, res);
   } catch (error) {
     console.error('Error in OpenAI handler:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// API route for getting available providers
+app.get('/api/providers', async (req: Request, res: Response) => {
+  try {
+    await providersHandler(req, res);
+  } catch (error) {
+    console.error('Error in providers handler:', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
