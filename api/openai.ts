@@ -2,7 +2,7 @@
 
 import { parseMoveString, boardToFEN, fenToMoveString, getLegalMoves, applyMove, getValidMovesForPiece } from "./chessRules.js";
 import { getAIProviderConfig } from "./common/config.js";
-import { BoardState, Color, Position, PieceType } from "./common/types.js";
+import { BoardState, Color, Position, PieceType, Move } from "./common/types.js";
 import { BOARD_ROWS, BOARD_COLS, PIECE_CHARS, COL_NUMERALS, MOVE_DIRECTIONS } from "./common/constants.js";
 
 // ==================== 核心处理函数 ====================
@@ -37,7 +37,7 @@ export default async function handler(req: any, res: any) {
 
     try {
         // 1. 获取包含战术分析的上下文
-        const { fen, allLegalMoves } = getGameContext(board, turn, lastMove);
+        const { fen, allLegalMoves } = getGameContext(board, turn);
 
         if (allLegalMoves.length === 0) {
             res.status(200).json({ move: null, message: "No legal moves" });
@@ -156,19 +156,10 @@ const isSquareUnderAttack = (board: BoardState, targetPos: Position, attackerCol
     return false;
 };
 
-export const getGameContext = (board: BoardState, turn: Color, lastMove: {from: Position, to: Position} | null) => {
+export const getGameContext = (board: BoardState, turn: Color) => {
     const fen = boardToFEN(board, turn);
     const allLegalMoves: LegalMove[] = [];
     const opponentColor = turn === Color.Red ? Color.Black : Color.Red;
-
-    // 上一步的记谱
-    let lastMoveNotation = "无";
-    if (lastMove) {
-        lastMoveNotation = getXiangqiNotation(board, lastMove.from, lastMove.to, opponentColor); // 注意：棋子已经动过了，这里生成的记谱可能不准，因为 board 已经是动后的。但对于提示词来说，坐标更重要。
-        // 修正：由于 board 已经是 lastMove 后的状态，直接生成记谱会找不到 from 的棋子。
-        // 简单起见，我们只显示坐标，或者在前端传过来 notation。
-        // 这里我们在 prompt 里用坐标描述上一步。
-    }
 
     for (let y = 0; y < board.length; y++) {
         for (let x = 0; x < board[0].length; x++) {
@@ -310,7 +301,7 @@ export const systemPrompt = `你是一个中国象棋特级大师。请根据盘
 **输出格式**:
 JSON 格式: { "selectedMove": "(x1,y1)->(x2,y2)", "notation": "炮二平五", "reasoning": "你的决策依据，不要超过3句话" }`;
 
-export const constructPrompt = (fen: string, turn: Color, board: BoardState, legalMoves: LegalMove[], lastMove: any) => {
+export const constructPrompt = (fen: string, turn: Color, board: BoardState, legalMoves: LegalMove[], lastMove: Move) => {
     // 1. 构造多维坐标棋盘
     let visualBoard = '\n';
     
