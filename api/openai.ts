@@ -378,6 +378,7 @@ export const constructPrompt = (fen: string, turn: Color, board: BoardState, leg
     return `## 当前局面
 **轮到**: ${turnStr}
 **上一步对手**: ${lastMoveInfo}
+**当前FEN**: ${fen}
 
 ## 可视化棋盘
 ${visualBoard}
