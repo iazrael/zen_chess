@@ -9,7 +9,8 @@
         "preview": "vite preview",
         "build:api": "cd server && tsc",
         "deploy": "npm run build && vercel --prod",
-        "icons": "node build-icons.js"
+        "icons": "node build-icons.js",
+        "sync:wiki": "./sync-wiki.sh"
     },
     "dependencies": {
         "@google/genai": "^1.30.0",
