@@ -4,12 +4,13 @@ import { GameView } from './components/GameView';
 import { Confetti } from './components/Confetti';
 import { HistoryModal } from './components/HistoryModal';
 import { GameSettingsModal, GameSettings } from './components/GameSettingsModal';
+import { GameResultCard } from './components/GameResultCard';
 import { INITIAL_BOARD, PIECE_CHARS, COL_NUMERALS, MOVE_DIRECTIONS } from './api/common/constants';
 import { BoardState, Color, Position, Move, GameStatus, AIModel, Piece, PieceType, CaptureAnimationState } from './api/common/types';
 import { getLegalMoves, applyMove, isCheck } from './api/chessRules';
 import { getMinimaxMove } from './services/minimaxService';
 import { getOpenAIMove } from './services/openaiService';
-import { playMoveSound, playCaptureSound, playWinSound, playSelectSound, playInvalidMoveSound, setGlobalVolume } from './utils/sound';
+import { playMoveSound, playCaptureSound, playWinSound, playSelectSound, playInvalidMoveSound, playVictorySound, playDefeatSound, setGlobalVolume } from './utils/sound';
 import { Volume2, VolumeX, X, ScrollText } from 'lucide-react';
 
 // --- Theme Definitions (Simplified for Zen focus) ---
@@ -46,6 +47,14 @@ function App() {
     const [captureAnimation, setCaptureAnimation] = useState<CaptureAnimationState | null>(null);
     // 新增：悔棋次数
     const [undoCount, setUndoCount] = useState(0);
+    // 新增：将军次数
+    const [checkCount, setCheckCount] = useState(0);
+    // 新增：游戏开始时间（用于计算总时长）
+    const [gameStartTime, setGameStartTime] = useState<number>(Date.now());
+    // 新增：游戏总时长（秒）
+    const [gameDuration, setGameDuration] = useState<number>(0);
+    // 新增：是否显示结果卡片
+    const [showResultCard, setShowResultCard] = useState(false);
 
     // Timer State (Only initial settings, running time is inside GameTimer)
     const [initialTime, setInitialTime] = useState<number>(600);
@@ -105,12 +114,31 @@ function App() {
         setGlobalVolume(volume);
     }, [volume]);
 
-    // Sound on Game Over
+    // Sound on Game Over - 新的音效逻辑
     useEffect(() => {
         if (gameStatus === GameStatus.RedWin || gameStatus === GameStatus.BlackWin) {
-            playWinSound();
+            // 计算游戏总时长
+            const duration = Math.floor((Date.now() - gameStartTime) / 1000);
+            setGameDuration(duration);
+            
+            // 根据游戏模式和结果播放不同音效
+            if (gameMode === 'ai') {
+                if (gameStatus === GameStatus.RedWin) {
+                    playVictorySound(); // 胜利音效
+                } else {
+                    playDefeatSound(); // 失败音效
+                }
+            } else {
+                // PVP模式，都播放胜利音效
+                playVictorySound();
+            }
+            
+            // 延迟显示结果卡片，让音效先播放
+            setTimeout(() => {
+                setShowResultCard(true);
+            }, 500);
         }
-    }, [gameStatus]);
+    }, [gameStatus, gameMode, gameStartTime]);
 
     const handleTimeOut = useCallback((color: Color) => {
         if (gameStatus !== GameStatus.Playing) return;
@@ -160,6 +188,10 @@ function App() {
         setSelectedPos(null);
         setValidMoves([]);
         setUndoCount(0); // Reset undo count
+        setCheckCount(0); // Reset check count
+        setGameStartTime(Date.now()); // Reset game start time
+        setGameDuration(0); // Reset game duration
+        setShowResultCard(false); // Hide result card
     };
 
     const getMoveNotation = (piece: Piece, from: Position, to: Position, targetPiece?: Piece | null) => {
@@ -264,6 +296,12 @@ function App() {
             
             // 检查游戏是否结束
             const newBoard = applyMove(currentBoard, from, to);
+            
+            // 检查是否将军
+            if (isCheck(newBoard, nextTurn)) {
+                setCheckCount(prev => prev + 1);
+            }
+            
             let hasMoves = false;
             for (let y = 0; y < 10; y++) {
                 for (let x = 0; x < 9; x++) {
@@ -463,7 +501,31 @@ function App() {
             onClose={() => setIsSettingsModalOpen(false)}
             onConfirm={handleSettingsConfirm}
         />
-        {gameStatus !== GameStatus.Playing && <Confetti />}
+        {/* 胜利时显示撒花动画，AI模式下失败不显示 */}
+        {gameStatus !== GameStatus.Playing && 
+         (gameMode === 'pvp' || (gameMode === 'ai' && gameStatus === GameStatus.RedWin)) && 
+         <Confetti />}
+        
+        {/* 游戏结束卡片 */}
+        {showResultCard && (gameStatus === GameStatus.RedWin || gameStatus === GameStatus.BlackWin) && (
+          <GameResultCard
+            gameStatus={gameStatus}
+            gameMode={gameMode}
+            aiModel={aiModel}
+            difficulty={minimaxDepth}
+            minimaxVersion={minimaxVersion}
+            llmProvider={aiProvider}
+            totalTime={gameDuration}
+            undoCount={undoCount}
+            checkCount={checkCount}
+            totalMoves={moveList.length}
+            onClose={() => setShowResultCard(false)}
+            onViewHistory={() => {
+              setShowResultCard(false);
+              setIsHistoryOpen(true);
+            }}
+          />
+        )}
       </div>
     );
 }

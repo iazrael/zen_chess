@@ -156,3 +156,82 @@ export const playInvalidMoveSound = () => {
     osc.start();
     osc.stop(t + 0.25);
 };
+
+// Longer victory sound with celebratory melody
+export const playVictorySound = () => {
+    if (globalVolume === 0) return;
+    const ctx = getCtx();
+    if (!ctx) return;
+
+    const t = ctx.currentTime;
+    
+    // Extended triumphant melody
+    const melody = [
+        { freq: 523.25, start: 0, duration: 0.3 },    // C5
+        { freq: 659.25, start: 0.3, duration: 0.3 },  // E5
+        { freq: 783.99, start: 0.6, duration: 0.3 },  // G5
+        { freq: 1046.50, start: 0.9, duration: 0.5 }, // C6
+        { freq: 1046.50, start: 1.5, duration: 0.3 }, // C6 (repeat)
+        { freq: 783.99, start: 1.8, duration: 0.3 },  // G5
+        { freq: 1046.50, start: 2.1, duration: 0.8 }, // C6 (finale)
+    ];
+
+    melody.forEach(note => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        
+        osc.type = 'sine';
+        osc.frequency.value = note.freq;
+        
+        const startTime = t + note.start;
+        const endTime = startTime + note.duration;
+        
+        gain.gain.setValueAtTime(0, startTime);
+        gain.gain.linearRampToValueAtTime(0.2 * globalVolume, startTime + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001 * globalVolume, endTime);
+        
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        
+        osc.start(startTime);
+        osc.stop(endTime);
+    });
+};
+
+// Defeat sound with somber tone
+export const playDefeatSound = () => {
+    if (globalVolume === 0) return;
+    const ctx = getCtx();
+    if (!ctx) return;
+
+    const t = ctx.currentTime;
+    
+    // Descending somber notes
+    const melody = [
+        { freq: 392.00, start: 0, duration: 0.6 },    // G4
+        { freq: 349.23, start: 0.6, duration: 0.6 },  // F4
+        { freq: 293.66, start: 1.2, duration: 0.6 },  // D4
+        { freq: 261.63, start: 1.8, duration: 1.2 },  // C4 (longer final note)
+    ];
+
+    melody.forEach(note => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        
+        osc.type = 'sine';
+        osc.frequency.value = note.freq;
+        
+        const startTime = t + note.start;
+        const endTime = startTime + note.duration;
+        
+        gain.gain.setValueAtTime(0, startTime);
+        gain.gain.linearRampToValueAtTime(0.15 * globalVolume, startTime + 0.1);
+        gain.gain.exponentialRampToValueAtTime(0.001 * globalVolume, endTime);
+        
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        
+        osc.start(startTime);
+        osc.stop(endTime);
+    });
+};
