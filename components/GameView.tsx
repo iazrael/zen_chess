@@ -105,6 +105,8 @@ export const GameView: React.FC<GameViewProps> = ({
     return "Zen 象棋";
   };
 
+  const rotateBlack = gameMode === "pvp";
+
   return (
     <div className="min-h-screen flex flex-col p-2 md:p-4">
       {/* Top Navigation Bar */}
@@ -183,6 +185,7 @@ export const GameView: React.FC<GameViewProps> = ({
               gridColor={gridColor}
               woodTexture={woodTexture}
               captureAnimation={captureAnimation}
+              rotateBlack={rotateBlack}
             />
           </div>
 
