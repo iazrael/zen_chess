@@ -129,8 +129,8 @@ export const GameView: React.FC<GameViewProps> = ({
 
         {/* Center: Board Area */}
         <div className="flex-1 flex flex-col items-center order-2">
-          {/* Mobile: Time Controls and AI Thinking */}
-          <div className="lg:hidden w-full max-w-[600px] mb-3 flex flex-col gap-3">
+          {/* Mobile: Time Controls */}
+          <div className="lg:hidden w-full max-w-[600px] mb-3">
             <TimeAndControlsModule 
               initialTime={initialTime}
               gameResetKey={gameResetKey}
@@ -142,11 +142,6 @@ export const GameView: React.FC<GameViewProps> = ({
               onReset={onReset}
               historyLength={historyLength}
               aiThinking={aiThinking}
-            />
-            <AIThinkingModule 
-              aiModel={aiModel}
-              aiThinking={aiThinking}
-              aiReasoning={aiReasoning}
             />
           </div>
 
@@ -163,6 +158,15 @@ export const GameView: React.FC<GameViewProps> = ({
               gridColor={gridColor}
               woodTexture={woodTexture}
               captureAnimation={captureAnimation}
+            />
+          </div>
+
+          {/* Mobile: AI Thinking Module */}
+          <div className="lg:hidden w-full max-w-[600px] mt-3">
+            <AIThinkingModule 
+              aiModel={aiModel}
+              aiThinking={aiThinking}
+              aiReasoning={aiReasoning}
             />
           </div>
         </div>
