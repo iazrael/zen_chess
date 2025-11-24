@@ -2,68 +2,69 @@
 <html lang="zh-CN">
 
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <meta name="theme-color" content="#f59e0b" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="中国象棋" />
-  <title>Zen象棋</title>
-  <link rel="manifest" href="/manifest.json" />
-  <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
-  <link rel="apple-touch-icon" href="./logo.svg" />
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            serif: ['"Songti SC"', '"SimSun"', '"STSong"', '"Times New Roman"', 'serif'],
-            calligraphy: ['"KaiTi"', '"STKaiti"', '"楷体"', '"ZCOOL XiaoWei"', 'serif'],
-          },
-          colors: {
-            wood: {
-              100: '#f7e7ce',
-              200: '#e6cfaa',
-              300: '#d4b685',
-              400: '#c29e61',
-              500: '#b08d4f', // Main board
-              600: '#917038',
-              700: '#735626',
-              800: '#543d18',
-              900: '#3b290e',
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#f59e0b" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="中国象棋" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./logo-180.png">
+
+    <title>Zen象棋</title>
+    <link rel="manifest" href="./manifest.json" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        serif: ['"Songti SC"', '"SimSun"', '"STSong"', '"Times New Roman"', 'serif'],
+                        calligraphy: ['"KaiTi"', '"STKaiti"', '"楷体"', '"ZCOOL XiaoWei"', 'serif'],
+                    },
+                    colors: {
+                        wood: {
+                            100: '#f7e7ce',
+                            200: '#e6cfaa',
+                            300: '#d4b685',
+                            400: '#c29e61',
+                            500: '#b08d4f', // Main board
+                            600: '#917038',
+                            700: '#735626',
+                            800: '#543d18',
+                            900: '#3b290e',
+                        },
+                        piece: {
+                            light: '#fdf6e3',
+                            shadow: '#d6c5a1',
+                        }
+                    },
+                    boxShadow: {
+                        'piece': '2px 2px 5px rgba(0,0,0,0.3), inset 0 0 10px rgba(255,255,255,0.5)',
+                        'piece-selected': '0 0 15px rgba(255, 215, 0, 0.8), 2px 2px 5px rgba(0,0,0,0.3)',
+                        'piece-captured': '0 0 20px rgba(255, 0, 0, 0.6), 2px 2px 5px rgba(0,0,0,0.3)',
+                    },
+                    keyframes: {
+                        explode: {
+                            '0%': { transform: 'scale(1) rotate(0deg)' },
+                            '50%': { transform: 'scale(1.2) rotate(10deg)' },
+                            '100%': { transform: 'scale(0) rotate(45deg)' }
+                        },
+                        shake: {
+                            '0%, 100%': { transform: 'translateX(0)' },
+                            '25%': { transform: 'translateX(-5px)' },
+                            '75%': { transform: 'translateX(5px)' }
+                        }
+                    },
+                    animation: {
+                        explode: 'explode 0.3s ease-out forwards',
+                        shake: 'shake 0.2s ease-in-out 2'
+                    }
+                },
             },
-            piece: {
-              light: '#fdf6e3',
-              shadow: '#d6c5a1',
-            }
-          },
-          boxShadow: {
-            'piece': '2px 2px 5px rgba(0,0,0,0.3), inset 0 0 10px rgba(255,255,255,0.5)',
-            'piece-selected': '0 0 15px rgba(255, 215, 0, 0.8), 2px 2px 5px rgba(0,0,0,0.3)',
-            'piece-captured': '0 0 20px rgba(255, 0, 0, 0.6), 2px 2px 5px rgba(0,0,0,0.3)',
-          },
-          keyframes: {
-            explode: {
-              '0%': { transform: 'scale(1) rotate(0deg)' },
-              '50%': { transform: 'scale(1.2) rotate(10deg)' },
-              '100%': { transform: 'scale(0) rotate(45deg)' }
-            },
-            shake: {
-              '0%, 100%': { transform: 'translateX(0)' },
-              '25%': { transform: 'translateX(-5px)' },
-              '75%': { transform: 'translateX(5px)' }
-            }
-          },
-          animation: {
-            explode: 'explode 0.3s ease-out forwards',
-            shake: 'shake 0.2s ease-in-out 2'
-          }
-        },
-      },
-    }
-  </script>
-  <script type="importmap">
+        }
+    </script>
+    <script type="importmap">
 {
   "imports": {
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
@@ -81,8 +82,8 @@
 </head>
 
 <body class="bg-stone-900 text-stone-100">
-  <div id="root"></div>
-  <script type="module" src="./index.tsx"></script>
+    <div id="root"></div>
+    <script type="module" src="./index.tsx"></script>
 </body>
 
 </html>
