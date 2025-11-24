@@ -98,15 +98,11 @@ export const GameView: React.FC<GameViewProps> = ({
   // 根据游戏模式生成标题文本
   const getTitleText = () => {
     if (gameMode === "pvp") {
-      return "Zen象棋 · 人人对战";
+      return "双人对弈";
     } else if (gameMode === "ai") {
-      if (aiModel === AIModel.Traditional) {
-        return "Zen象棋 · 传统算法";
-      } else if (aiModel === AIModel.OpenAI) {
-        return "Zen象棋 · 大模型对战";
-      }
+      return "挑战 AI";
     }
-    return "Zen象棋";
+    return "Zen 象棋";
   };
 
   return (
