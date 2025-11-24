@@ -14,7 +14,7 @@ const FUTILITY_MARGIN = [0, 200, 400, 600]; // 深度1-3的剪枝容忍度
 // =================子力价值=================
 // 重新调整价值，拉大子力差距，避免随意弃子
 const MG_VAL: Record<string, number> = { // 中局价值
-  k: 20000, r: 900, n: 450, c: 450, a: 200, b: 200, p: 100
+  k: 20000, r: 900, n: 430, c: 450, a: 200, b: 200, p: 100
 };
 // 简单的动态价值修正（机动性每步加分）
 const MOBILITY_BONUS: Record<string, number> = {
@@ -53,7 +53,6 @@ function checkTime() {
     }
   }
 }
-
 // ================= 核心 1: 静态交换评估 (SEE) =================
 // 这是一个简化版的 SEE，用于判断吃子是否划算
 // 返回值 > 0 表示赚了， < 0 表示亏了
@@ -61,20 +60,31 @@ function staticExchangeEvaluation(board: BoardState, move: MoveSimple, color: Co
   const target = board[move.to.y][move.to.x];
   if (!target) return 0;
 
-  // 1. 如果是用低价值子吃高价值子（如兵吃车），永远是赚的（除非被杀）
   const attackerVal = MG_VAL[board[move.from.y][move.from.x]!.type];
   const victimVal = MG_VAL[target.type];
+
+  // 1. 如果是用低价值子吃高价值子（如兵吃车），永远是赚的
   if (victimVal > attackerVal) return victimVal - attackerVal;
 
-  // 2. 如果是用高吃低，或者等价交换，需要看目标是否有根
-  // 简易判断：如果目标被对方保护，则交换分数为 (被吃子 - 进攻子)
-  // 这是一个悲观估计：假设我吃了他，他立马吃回我。
-  if (isSquareDefended(board, move.to, color === Color.Red ? Color.Black : Color.Red)) {
-    return victimVal - attackerVal;
+  // 2. 检查是否有根（受保护）
+  const defended = isSquareDefended(board, move.to, color === Color.Red ? Color.Black : Color.Red);
+
+  // 如果没根，直接白吃
+  if (!defended) return victimVal;
+
+  // 3. 如果有根，计算交换损益
+  const tradeScore = victimVal - attackerVal;
+
+  // === 关键修复：节奏惩罚 ===
+  // 如果是等价交换（如炮换马 450换450，车换车 900换900）
+  // 进攻方通常是亏的（浪费了走子机会，且往往帮对方调整了阵型）
+  if (tradeScore === 0) {
+    // 给予 -50 的惩罚，告诉 AI：除非没棋走了，否则别主动去换子
+    return -50;
   }
-  
-  // 没根，白吃
-  return victimVal;
+
+  // 如果是亏损交换（如车换马），直接返回负值
+  return tradeScore;
 }
 
 // 检查 pos 是否被 defenderColor 保护
