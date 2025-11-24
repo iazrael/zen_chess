@@ -1,7 +1,7 @@
 import { BoardState, Color, Position } from "@/api/common/types";
 
 import { wrap } from 'comlink';
-import { MinimaxWorkerAPI } from "./types";
+import { MinimaxWorkerAPI, MinimaxVersion } from "./types";
 import { buildApiUrl } from '@/utils/env';
 // import { getBestMoveMinimax } from "@/api/minimaxV2";
 
@@ -10,7 +10,7 @@ export { getMinimaxMoveWorker as  getMinimaxMove};
 /**
  * Minimax服务类，提供与minimax.ts API交互的方法
  */
-const getMinimaxMoveAPI = async (board: BoardState, turn: Color, depth: number = 3): Promise<{ from: Position; to: Position } | null> => {
+const getMinimaxMoveAPI = async (board: BoardState, turn: Color, depth: number = 3, version: MinimaxVersion = MinimaxVersion.V2): Promise<{ from: Position; to: Position } | null> => {
     try {
         const response = await fetch(buildApiUrl('/api/minimax'), {
             method: 'POST',
@@ -44,7 +44,7 @@ const getMinimaxMoveAPI = async (board: BoardState, turn: Color, depth: number =
     }
 };
 
-const getMinimaxMoveWorker = async (board: BoardState, turn: Color, depth: number = 3, version: 'v1' | 'v2' = 'v2'): Promise<{ from: Position; to: Position } | null> => {
+const getMinimaxMoveWorker = async (board: BoardState, turn: Color, depth: number = 3, version: MinimaxVersion = MinimaxVersion.V2): Promise<{ from: Position; to: Position } | null> => {
     try {
         // 使用import.meta.url语法创建 Worker，确保 Vite能正确处理Worker文件
         const worker = new Worker(new URL('./minimaxWorker.ts', import.meta.url), { type: 'module' });

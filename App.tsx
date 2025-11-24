@@ -12,6 +12,7 @@ import { getMinimaxMove } from './services/minimaxService';
 import { getOpenAIMove } from './services/openaiService';
 import { playMoveSound, playCaptureSound, playWinSound, playSelectSound, playInvalidMoveSound, playVictorySound, playDefeatSound, playCheckSound, setGlobalVolume } from './utils/sound';
 import { Volume2, VolumeX, X, ScrollText } from 'lucide-react';
+import { MinimaxVersion } from './services/types';
 
 // --- Theme Definitions (Simplified for Zen focus) ---
 const THEME = {
@@ -67,7 +68,7 @@ function App() {
     const [aiThinking, setAiThinking] = useState(false);
     const [aiReasoning, setAiReasoning] = useState<string | null>(null);
     const [minimaxDepth, setMinimaxDepth] = useState(4);
-    const [minimaxVersion, setMinimaxVersion] = useState<'v1' | 'v2'>('v2');
+    const [minimaxVersion, setMinimaxVersion] = useState<MinimaxVersion>(MinimaxVersion.V2);
     const [gameMode, setGameMode] = useState<'pvp' | 'ai'>('pvp');
 
     // UI State
@@ -164,7 +165,7 @@ function App() {
             // AI mode
             if (settings.algorithmType === 'traditional') {
                 setAiModel(AIModel.Traditional);
-                setMinimaxVersion(settings.minimaxVersion || 'v2');
+                setMinimaxVersion(settings.minimaxVersion || MinimaxVersion.V2);
                 setMinimaxDepth(settings.difficulty || 4);
             } else {
                 setAiModel(AIModel.OpenAI);

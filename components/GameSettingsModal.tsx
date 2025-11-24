@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Volume2, VolumeX, Clock, Zap, BrainCircuit, Sparkles } from 'lucide-react';
 import { buildApiUrl, getRuntimeEnvironment, RuntimeEnvironment } from '@/utils/env';
+import { MinimaxVersion } from '@/services/types';
 
 export interface GameSettings {
     gameMode: 'pvp' | 'ai';
@@ -8,7 +9,7 @@ export interface GameSettings {
     volume: number;
     // AI specific settings
     algorithmType?: 'traditional' | 'llm';
-    minimaxVersion?: 'v1' | 'v2';
+    minimaxVersion?: MinimaxVersion;
     difficulty?: 3 | 4 | 5;
     llmProvider?: string;
 }
@@ -42,8 +43,8 @@ export const GameSettingsModal: React.FC<GameSettingsModalProps> = ({
     const [algorithmType, setAlgorithmType] = useState<'traditional' | 'llm'>(
         (runtimeEnv !== RuntimeEnvironment.GITHUB_PAGES && initialSettings.algorithmType) || 'traditional'
     );
-    const [minimaxVersion, setMinimaxVersion] = useState<'v1' | 'v2'>(
-        initialSettings.minimaxVersion || 'v2'
+    const [minimaxVersion, setMinimaxVersion] = useState<MinimaxVersion>(
+        initialSettings.minimaxVersion || MinimaxVersion.V2
     );
     const [difficulty, setDifficulty] = useState<3 | 4 | 5>(
         initialSettings.difficulty || 4
@@ -179,11 +180,11 @@ export const GameSettingsModal: React.FC<GameSettingsModalProps> = ({
                                 <div className="space-y-3 animate-fade-in">
                                     <div>
                                         <label className="text-xs text-stone-400 mb-2 block">算法版本</label>
-                                        <div className="grid grid-cols-2 gap-2">
+                                        <div className="grid grid-cols-3 gap-2">
                                             <button
-                                                onClick={() => setMinimaxVersion('v1')}
+                                                onClick={() => setMinimaxVersion(MinimaxVersion.V1)}
                                                 className={`py-2 px-3 text-sm rounded border transition-all ${
-                                                    minimaxVersion === 'v1'
+                                                    minimaxVersion === MinimaxVersion.V1
                                                         ? 'border-blue-500 bg-blue-500/20 text-blue-300'
                                                         : 'border-stone-700 bg-stone-800 text-stone-400 hover:bg-stone-700'
                                                 }`}
@@ -191,14 +192,24 @@ export const GameSettingsModal: React.FC<GameSettingsModalProps> = ({
                                                 Minimax V1
                                             </button>
                                             <button
-                                                onClick={() => setMinimaxVersion('v2')}
+                                                onClick={() => setMinimaxVersion(MinimaxVersion.V2)}
                                                 className={`py-2 px-3 text-sm rounded border transition-all ${
-                                                    minimaxVersion === 'v2'
+                                                    minimaxVersion === MinimaxVersion.V2
                                                         ? 'border-blue-500 bg-blue-500/20 text-blue-300'
                                                         : 'border-stone-700 bg-stone-800 text-stone-400 hover:bg-stone-700'
                                                 }`}
                                             >
                                                 Minimax V2
+                                            </button>
+                                            <button
+                                                onClick={() => setMinimaxVersion(MinimaxVersion.V3)}
+                                                className={`py-2 px-3 text-sm rounded border transition-all ${
+                                                    minimaxVersion === MinimaxVersion.V3
+                                                        ? 'border-blue-500 bg-blue-500/20 text-blue-300'
+                                                        : 'border-stone-700 bg-stone-800 text-stone-400 hover:bg-stone-700'
+                                                }`}
+                                            >
+                                                Minimax V3
                                             </button>
                                         </div>
                                     </div>

@@ -479,9 +479,10 @@ export async function getBestMoveV2(board: BoardState, aiColor: Color, timeLimit
 
 // 兼容旧接口
 export const getBestMoveMinimax = async (board: BoardState, turn: Color, depth: number = 3): Promise<{ from: Position; to: Position } | null> => {
-  // 忽略传入的 depth，使用时间控制，默认给 2000ms
+  // 默认给 2000ms
+  const timeLimitMs = 2000 + (depth - 3) * 1000;
   // 如果需要更强，可以增加时间
-  return await getBestMoveV2(board, turn, 2000);
+  return await getBestMoveV2(board, turn, timeLimitMs);
 };
 
 // --- END OF FILE minimaxV2.ts ---

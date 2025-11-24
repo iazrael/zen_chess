@@ -2,13 +2,14 @@ import React, { useRef } from 'react';
 import { Color, AIModel, GameStatus } from '@/api/common/types';
 import { Star, Trophy, Heart, Sparkles, Download, History as HistoryIcon } from 'lucide-react';
 import html2canvas from 'html2canvas';
+import { MinimaxVersion } from '@/services/types';
 
 interface GameResultCardProps {
   gameStatus: GameStatus;
   gameMode: 'pvp' | 'ai';
   aiModel: AIModel;
   difficulty?: number;
-  minimaxVersion?: 'v1' | 'v2';
+  minimaxVersion?: MinimaxVersion;
   llmProvider?: string;
   totalTime: number; // 总耗时（秒）
   undoCount: number; // 悔棋次数
