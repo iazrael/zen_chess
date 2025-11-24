@@ -416,6 +416,7 @@ function App() {
             aiModel={aiModel}
             aiThinking={aiThinking}
             aiReasoning={aiReasoning}
+            gameMode={gameMode}
             
             // Handlers
             onSquareClick={handleSquareClickStable}

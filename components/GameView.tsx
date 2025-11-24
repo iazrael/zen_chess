@@ -1,9 +1,17 @@
-import React, { useRef, useEffect } from 'react';
-import { ChevronLeft, Home, History as HistoryIcon } from 'lucide-react';
-import { Board } from './Board';
-import { TimeAndControlsModule } from './TimeAndControlsModule';
-import { AIThinkingModule } from './AIThinkingModule';
-import { BoardState, Color, Position, Move, GameStatus, AIModel, CaptureAnimationState } from '@/api/common/types';
+import React, { useRef, useEffect } from "react";
+import { ChevronLeft, Home, History as HistoryIcon } from "lucide-react";
+import { Board } from "./Board";
+import { TimeAndControlsModule } from "./TimeAndControlsModule";
+import { AIThinkingModule } from "./AIThinkingModule";
+import {
+  BoardState,
+  Color,
+  Position,
+  Move,
+  GameStatus,
+  AIModel,
+  CaptureAnimationState,
+} from "@/api/common/types";
 
 interface GameViewProps {
   // Game State
@@ -15,16 +23,17 @@ interface GameViewProps {
   gameStatus: GameStatus;
   captureAnimation: CaptureAnimationState | null;
   historyLength: number;
-  
+
   // Timer State
   initialTime: number;
   gameResetKey: number;
-  
+
   // AI State
   aiModel: AIModel;
   aiThinking: boolean;
   aiReasoning: string | null;
-  
+  gameMode: "pvp" | "ai";
+
   // Handlers
   onSquareClick: (pos: Position) => void;
   onTimeOut: (color: Color) => void;
@@ -33,7 +42,7 @@ interface GameViewProps {
   onNavigateHome: () => void;
   onToggleHistory: () => void;
   isHistoryOpen: boolean;
-  
+
   // Theme
   boardBgClass: string;
   boardBorderClass: string;
@@ -51,16 +60,17 @@ export const GameView: React.FC<GameViewProps> = ({
   gameStatus,
   captureAnimation,
   historyLength,
-  
+
   // Timer State
   initialTime,
   gameResetKey,
-  
+
   // AI State
   aiModel,
   aiThinking,
   aiReasoning,
-  
+  gameMode,
+
   // Handlers
   onSquareClick,
   onTimeOut,
@@ -69,14 +79,13 @@ export const GameView: React.FC<GameViewProps> = ({
   onNavigateHome,
   onToggleHistory,
   isHistoryOpen,
-  
+
   // Theme
   boardBgClass,
   boardBorderClass,
   gridColor,
-  woodTexture
+  woodTexture,
 }) => {
-
   // 处理超时的辅助函数
   const handleRedTimeOut = () => {
     onTimeOut(Color.Red);
@@ -84,6 +93,20 @@ export const GameView: React.FC<GameViewProps> = ({
 
   const handleBlackTimeOut = () => {
     onTimeOut(Color.Black);
+  };
+
+  // 根据游戏模式生成标题文本
+  const getTitleText = () => {
+    if (gameMode === "pvp") {
+      return "Zen象棋 · 人人对战";
+    } else if (gameMode === "ai") {
+      if (aiModel === AIModel.Traditional) {
+        return "Zen象棋 · 传统算法";
+      } else if (aiModel === AIModel.OpenAI) {
+        return "Zen象棋 · 大模型对战";
+      }
+    }
+    return "Zen象棋";
   };
 
   return (
@@ -96,10 +119,16 @@ export const GameView: React.FC<GameViewProps> = ({
         >
           <ChevronLeft className="w-5 h-5" /> <Home className="w-4 h-4" />
         </button>
-        <h2 className="text-xl font-calligraphy text-stone-200 tracking-widest">中国象棋</h2>
+        <h2 className="text-xl font-calligraphy text-stone-200 tracking-widest">
+          {getTitleText()}
+        </h2>
         <button
           onClick={onToggleHistory}
-          className={`p-2 rounded-full transition-colors ${isHistoryOpen ? 'bg-amber-600 text-white' : 'bg-stone-800 text-stone-400 hover:text-white'}`}
+          className={`p-2 rounded-full transition-colors ${
+            isHistoryOpen
+              ? "bg-amber-600 text-white"
+              : "bg-stone-800 text-stone-400 hover:text-white"
+          }`}
         >
           <HistoryIcon className="w-5 h-5" />
         </button>
@@ -108,7 +137,7 @@ export const GameView: React.FC<GameViewProps> = ({
       <div className="flex-1 w-full max-w-6xl mx-auto flex flex-col lg:flex-row gap-4 lg:gap-6 lg:items-start">
         {/* Desktop: Left Sidebar (Time + AI Thinking) */}
         <div className="hidden lg:flex w-[350px] flex-col gap-3 flex-shrink-0 sticky top-4 order-1">
-          <TimeAndControlsModule 
+          <TimeAndControlsModule
             initialTime={initialTime}
             gameResetKey={gameResetKey}
             turn={turn}
@@ -120,7 +149,7 @@ export const GameView: React.FC<GameViewProps> = ({
             historyLength={historyLength}
             aiThinking={aiThinking}
           />
-          <AIThinkingModule 
+          <AIThinkingModule
             aiModel={aiModel}
             aiThinking={aiThinking}
             aiReasoning={aiReasoning}
@@ -131,7 +160,7 @@ export const GameView: React.FC<GameViewProps> = ({
         <div className="flex-1 flex flex-col items-center order-2">
           {/* Mobile: Time Controls */}
           <div className="lg:hidden w-full max-w-[600px] mb-3">
-            <TimeAndControlsModule 
+            <TimeAndControlsModule
               initialTime={initialTime}
               gameResetKey={gameResetKey}
               turn={turn}
@@ -163,7 +192,7 @@ export const GameView: React.FC<GameViewProps> = ({
 
           {/* Mobile: AI Thinking Module */}
           <div className="lg:hidden w-full max-w-[600px] mt-3">
-            <AIThinkingModule 
+            <AIThinkingModule
               aiModel={aiModel}
               aiThinking={aiThinking}
               aiReasoning={aiReasoning}
