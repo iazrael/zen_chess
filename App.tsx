@@ -10,7 +10,7 @@ import { BoardState, Color, Position, Move, GameStatus, AIModel, Piece, PieceTyp
 import { getLegalMoves, applyMove, isCheck } from './api/chessRules';
 import { getMinimaxMove } from './services/minimaxService';
 import { getOpenAIMove } from './services/openaiService';
-import { playMoveSound, playCaptureSound, playWinSound, playSelectSound, playInvalidMoveSound, playVictorySound, playDefeatSound, setGlobalVolume } from './utils/sound';
+import { playMoveSound, playCaptureSound, playWinSound, playSelectSound, playInvalidMoveSound, playVictorySound, playDefeatSound, playCheckSound, setGlobalVolume } from './utils/sound';
 import { Volume2, VolumeX, X, ScrollText } from 'lucide-react';
 
 // --- Theme Definitions (Simplified for Zen focus) ---
@@ -300,6 +300,8 @@ function App() {
             // 检查是否将军
             if (isCheck(newBoard, nextTurn)) {
                 setCheckCount(prev => prev + 1);
+                // 播放将军音效
+                playCheckSound();
             }
             
             let hasMoves = false;

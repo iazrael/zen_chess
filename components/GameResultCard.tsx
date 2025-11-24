@@ -329,13 +329,13 @@ export const GameResultCard: React.FC<GameResultCardProps> = ({
 
         {/* 外部操作按钮 */}
         <div className="flex flex-wrap justify-center gap-3">
-          <button
+          {/* <button
             onClick={handleSaveCard}
             className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full font-bold shadow-lg hover:shadow-xl hover:scale-105 transition-all"
           >
             <Download className="w-5 h-5" />
             保存战绩
-          </button>
+          </button> */}
           <button
             onClick={onViewHistory}
             className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-full font-bold shadow-lg hover:shadow-xl hover:scale-105 transition-all"

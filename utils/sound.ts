@@ -235,3 +235,34 @@ export const playDefeatSound = () => {
         osc.stop(endTime);
     });
 };
+
+// 将军音效 - 刺激的警告声
+export const playCheckSound = () => {
+    if (globalVolume === 0) return;
+    const ctx = getCtx();
+    if (!ctx) return;
+
+    const t = ctx.currentTime;
+    
+    // 急促的双重警告音
+    [0, 0.15].forEach(delay => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        
+        // 高频尖锐的方波，制造紧张感
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(880, t + delay);  // A5
+        osc.frequency.exponentialRampToValueAtTime(440, t + delay + 0.1);  // A4
+        
+        // 快速的音量包络
+        gain.gain.setValueAtTime(0, t + delay);
+        gain.gain.linearRampToValueAtTime(0.25 * globalVolume, t + delay + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.01 * globalVolume, t + delay + 0.15);
+        
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        
+        osc.start(t + delay);
+        osc.stop(t + delay + 0.2);
+    });
+};
