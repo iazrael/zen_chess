@@ -23,6 +23,8 @@ interface GameViewProps {
   gameStatus: GameStatus;
   captureAnimation: CaptureAnimationState | null;
   historyLength: number;
+  undoCount: number;
+  totalMoves: number;
 
   // Timer State
   initialTime: number;
@@ -60,6 +62,8 @@ export const GameView: React.FC<GameViewProps> = ({
   gameStatus,
   captureAnimation,
   historyLength,
+  undoCount,
+  totalMoves,
 
   // Timer State
   initialTime,
@@ -144,8 +148,11 @@ export const GameView: React.FC<GameViewProps> = ({
             onBlackTimeOut={handleBlackTimeOut}
             onUndo={onUndo}
             onReset={onReset}
+            onOpenHistory={onToggleHistory}
             historyLength={historyLength}
             aiThinking={aiThinking}
+            undoCount={undoCount}
+            totalMoves={totalMoves}
           />
           <AIThinkingModule
             aiModel={aiModel}
@@ -167,8 +174,11 @@ export const GameView: React.FC<GameViewProps> = ({
               onBlackTimeOut={handleBlackTimeOut}
               onUndo={onUndo}
               onReset={onReset}
+              onOpenHistory={onToggleHistory}
               historyLength={historyLength}
               aiThinking={aiThinking}
+              undoCount={undoCount}
+              totalMoves={totalMoves}
             />
           </div>
 

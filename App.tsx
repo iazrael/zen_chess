@@ -44,6 +44,8 @@ function App() {
     const [isAnimating, setIsAnimating] = useState(false);
     // 新增：吃子动画状态，记录当前正在被吃的棋子位置和状态
     const [captureAnimation, setCaptureAnimation] = useState<CaptureAnimationState | null>(null);
+    // 新增：悔棋次数
+    const [undoCount, setUndoCount] = useState(0);
 
     // Timer State (Only initial settings, running time is inside GameTimer)
     const [initialTime, setInitialTime] = useState<number>(600);
@@ -77,7 +79,8 @@ function App() {
         aiThinking,
         gameStatus,
         isAnimating,
-        captureAnimation
+        captureAnimation,
+        undoCount
     });
 
     // Sync ref with state on every render
@@ -92,7 +95,8 @@ function App() {
             aiThinking,
             gameStatus,
             isAnimating,
-            captureAnimation
+            captureAnimation,
+            undoCount
         };
     });
 
@@ -155,6 +159,7 @@ function App() {
         setGameResetKey(prev => prev + 1);
         setSelectedPos(null);
         setValidMoves([]);
+        setUndoCount(0); // Reset undo count
     };
 
     const getMoveNotation = (piece: Piece, from: Position, to: Position, targetPiece?: Piece | null) => {
@@ -382,6 +387,9 @@ function App() {
 
         setHistory(prev => prev.slice(0, -steps));
         setMoveList(prev => prev.slice(0, -steps));
+        
+        // 增加悔棋次数
+        setUndoCount(prev => prev + 1);
 
         setGameStatus(GameStatus.Playing);
     };
@@ -407,6 +415,8 @@ function App() {
             gameStatus={gameStatus}
             captureAnimation={captureAnimation}
             historyLength={history.length}
+            undoCount={undoCount}
+            totalMoves={moveList.length}
             
             // Timer State
             initialTime={initialTime}

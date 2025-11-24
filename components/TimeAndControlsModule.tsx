@@ -1,6 +1,7 @@
 import React from 'react';
 import { Undo2, RotateCcw } from 'lucide-react';
 import { GameTimer } from './GameTimer';
+import { GameStatsBar } from './GameStatsBar';
 import { Color, GameStatus } from '@/api/common/types';
 
 interface TimeAndControlsModuleProps {
@@ -15,10 +16,13 @@ interface TimeAndControlsModuleProps {
   onBlackTimeOut: () => void;
   onUndo: () => void;
   onReset: () => void;
+  onOpenHistory: () => void;
   
   // State
   historyLength: number;
   aiThinking: boolean;
+  undoCount: number;
+  totalMoves: number;
 }
 
 export const TimeAndControlsModule: React.FC<TimeAndControlsModuleProps> = ({
@@ -33,10 +37,13 @@ export const TimeAndControlsModule: React.FC<TimeAndControlsModuleProps> = ({
   onBlackTimeOut,
   onUndo,
   onReset,
+  onOpenHistory,
   
   // State
   historyLength,
-  aiThinking
+  aiThinking,
+  undoCount,
+  totalMoves
 }) => {
   const getWinMessage = (gameStatus: GameStatus) => {
     if (gameStatus === GameStatus.RedWin) {
@@ -103,6 +110,13 @@ export const TimeAndControlsModule: React.FC<TimeAndControlsModuleProps> = ({
           </span>
         </div>
       )}
+
+      {/* Game Stats Bar */}
+      <GameStatsBar 
+        undoCount={undoCount}
+        totalMoves={totalMoves}
+        onOpenHistory={onOpenHistory}
+      />
     </div>
   );
 };
